@@ -26,7 +26,7 @@ from exaspim_swc_transform.metadata import (
 from exaspim_swc_transform.naming import transformed_name
 from exaspim_swc_transform.resample import resample_swc
 from exaspim_swc_transform.transform_resolution import resolve_inputs
-from exaspim_swc_transform.type_assign import fix_structure_assignment
+from exaspim_swc_transform.fix_types import fix_structure_assignment
 
 
 def parse_args() -> argparse.Namespace:
