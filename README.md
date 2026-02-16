@@ -26,4 +26,5 @@ python -m exaspim_swc_transform.cli \
 - `--naming-style suffix` appends `__space-ccf_res-10um`.
 
 ## Code Ocean run wrapper
-`./run <transform_dir> [manual_df_path]`
+- Primary entrypoint: `python run.py`
+- Convenience wrapper: `./run <transform_dir> [manual_df_path]`

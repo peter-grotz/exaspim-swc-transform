@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-python -m exaspim_swc_transform.cli \
+python run.py \
   --swc-dir "${SWC_DIR:-/data/final-world}" \
   --transform-dir "${1:-${TRANSFORM_DIR:-}}" \
   --manual-df-path "${2:-${MANUAL_DF_PATH:-}}"
