@@ -24,11 +24,29 @@ Unified post-refinement capsule:
 python run.py \
   --swc-dir /data/final-world \
   --transform-dir /data/reg_XXXXXX_to_ccf_v1.5 \
-  --manual-df-path /data/manual-displacement/field.nrrd \
+  --dataset-id XXXXXX \
+  --manual-df-path /data/manual-XXXXXX-displacement-field \
   --output-root /results/ccf_space_reconstructions \
   --metadata-dir /results/metadata \
   --node-spacing-um 10
 ```
+
+### Transform resolution strategy
+- Shared assets are fixed by default (override only if needed):
+  - `--exaspim-to-ccf-affine-path` default `/data/reg_exaspim_template_to_ccf_withGradMap_10um_v1.0/0GenericAffine.mat`
+  - `--exaspim-to-ccf-inverse-warp-path` default `/data/reg_exaspim_template_to_ccf_withGradMap_10um_v1.0/1InverseWarp.nii.gz`
+  - `--ccf-template-path` default `/data/allen_mouse_ccf/average_template/average_template_10.nii.gz`
+  - `--exaspim-template-path` default `/data/exaspim_template_7subjects_nomask_10um_round6_template_only/fixed_median.nii.gz`
+- Per-sample assets are resolved by strict naming convention under `--transform-dir`:
+  - `{dataset_id}_to_exaSPIM_SyN_0GenericAffine.mat`
+  - `{dataset_id}_to_exaSPIM_SyN_1InverseWarp.nii.gz`
+  - `registration_metadata/acquisition_{dataset_id}.json`
+  - `registration_metadata/{dataset_id}_10um_loaded_zarr_img.nii.gz`
+  - `registration_metadata/{dataset_id}_10um_resampled_zarr_img.nii.gz`
+- Manual displacement field:
+  - if `--manual-df-path` is a file, use it directly
+  - if it is a directory, the capsule searches dataset-specific names; use `--manual-df-filename` to force a specific file
+  - omit `--manual-df-path` to skip manual DF
 
 ## Naming style
 - `--naming-style preserve` keeps original stem.

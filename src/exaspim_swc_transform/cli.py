@@ -25,7 +25,13 @@ from exaspim_swc_transform.metadata import (
 )
 from exaspim_swc_transform.naming import transformed_name
 from exaspim_swc_transform.resample import resample_swc
-from exaspim_swc_transform.transform_resolution import resolve_inputs
+from exaspim_swc_transform.transform_resolution import (
+    DEFAULT_CCF_TEMPLATE,
+    DEFAULT_EXASPIM_TEMPLATE,
+    DEFAULT_EXASPIM_TO_CCF_AFFINE,
+    DEFAULT_EXASPIM_TO_CCF_INVERSE_WARP,
+    resolve_inputs,
+)
 from exaspim_swc_transform.fix_types import fix_structure_assignment
 
 
@@ -34,7 +40,35 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--swc-dir", default=os.environ.get("SWC_DIR", "/data/final-world"))
     parser.add_argument("--transform-dir", default=os.environ.get("TRANSFORM_DIR", ""))
     parser.add_argument("--manual-df-path", default=os.environ.get("MANUAL_DF_PATH", ""))
+    parser.add_argument("--manual-df-filename", default=os.environ.get("MANUAL_DF_FILENAME", ""))
     parser.add_argument("--dataset-id", default="")
+    parser.add_argument(
+        "--sample-to-exaspim-affine-path",
+        default=os.environ.get("SAMPLE_TO_EXASPIM_AFFINE_PATH", ""),
+    )
+    parser.add_argument(
+        "--sample-to-exaspim-inverse-warp-path",
+        default=os.environ.get("SAMPLE_TO_EXASPIM_INVERSE_WARP_PATH", ""),
+    )
+    parser.add_argument(
+        "--exaspim-to-ccf-affine-path",
+        default=os.environ.get("EXASPIM_TO_CCF_AFFINE_PATH", DEFAULT_EXASPIM_TO_CCF_AFFINE),
+    )
+    parser.add_argument(
+        "--exaspim-to-ccf-inverse-warp-path",
+        default=os.environ.get(
+            "EXASPIM_TO_CCF_INVERSE_WARP_PATH",
+            DEFAULT_EXASPIM_TO_CCF_INVERSE_WARP,
+        ),
+    )
+    parser.add_argument(
+        "--ccf-template-path",
+        default=os.environ.get("CCF_TEMPLATE_PATH", DEFAULT_CCF_TEMPLATE),
+    )
+    parser.add_argument(
+        "--exaspim-template-path",
+        default=os.environ.get("EXASPIM_TEMPLATE_PATH", DEFAULT_EXASPIM_TEMPLATE),
+    )
     parser.add_argument("--output-root", default="/results/ccf_space_reconstructions")
     parser.add_argument("--metadata-dir", default="/results/metadata")
     parser.add_argument("--naming-style", choices=["preserve", "suffix"], default="preserve")
@@ -104,7 +138,18 @@ def run(args: argparse.Namespace) -> int:
         intermediate_root = Path(tmp_ctx.name)
 
     start_time = utc_now_iso()
-    resolved = resolve_inputs(transform_dir, args.manual_df_path, args.dataset_id)
+    resolved = resolve_inputs(
+        transform_dir,
+        args.manual_df_path,
+        args.dataset_id,
+        sample_to_exaspim_affine_path=args.sample_to_exaspim_affine_path,
+        sample_to_exaspim_inverse_warp_path=args.sample_to_exaspim_inverse_warp_path,
+        exaspim_to_ccf_affine_path=args.exaspim_to_ccf_affine_path,
+        exaspim_to_ccf_inverse_warp_path=args.exaspim_to_ccf_inverse_warp_path,
+        ccf_template_path=args.ccf_template_path,
+        exaspim_template_path=args.exaspim_template_path,
+        manual_df_filename=args.manual_df_filename,
+    )
     pipeline = _build_pipeline(resolved)
     ccf, ants_exaspim, brain_img, resampled_img = pipeline.load_images()
 

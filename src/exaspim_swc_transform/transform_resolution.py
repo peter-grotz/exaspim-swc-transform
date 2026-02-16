@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
-import glob
 import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
+
+DEFAULT_EXASPIM_TO_CCF_AFFINE = "/data/reg_exaspim_template_to_ccf_withGradMap_10um_v1.0/0GenericAffine.mat"
+DEFAULT_EXASPIM_TO_CCF_INVERSE_WARP = "/data/reg_exaspim_template_to_ccf_withGradMap_10um_v1.0/1InverseWarp.nii.gz"
+DEFAULT_CCF_TEMPLATE = "/data/allen_mouse_ccf/average_template/average_template_10.nii.gz"
+DEFAULT_EXASPIM_TEMPLATE = (
+    "/data/exaspim_template_7subjects_nomask_10um_round6_template_only/fixed_median.nii.gz"
+)
 
 
 @dataclass(frozen=True)
@@ -20,56 +26,165 @@ class ResolvedInputs:
     manual_transform_path: list[str]
     ccf_path: str
     exaspim_template_path: str
+def _require_file(path: str, what: str) -> str:
+    abs_path = os.path.abspath(path)
+    if not os.path.isfile(abs_path):
+        raise FileNotFoundError(f"Missing {what}: {abs_path}")
+    return abs_path
 
 
-def _pick_one(pattern: str, what: str) -> str:
-    hits = sorted(glob.glob(pattern, recursive=True), key=lambda p: os.path.getsize(p), reverse=True)
-    if not hits:
-        raise FileNotFoundError(f"Could not find {what}; pattern={pattern}")
-    return os.path.abspath(hits[0])
+def _candidate_paths(root: Path, rels: list[str]) -> list[Path]:
+    return [root / rel for rel in rels]
 
 
-def resolve_inputs(transform_dir: Path, manual_df_path: str = "", dataset_id: str = "") -> ResolvedInputs:
+def _pick_existing(candidates: list[Path], what: str) -> str:
+    hits = [c for c in candidates if c.is_file()]
+    if len(hits) != 1:
+        debug = "\n".join(f"  - {p}" for p in candidates)
+        raise FileNotFoundError(f"Expected exactly one {what}. Found {len(hits)}.\nCandidates:\n{debug}")
+    return str(hits[0].resolve())
+
+
+def _resolve_bundle_root(transform_dir: Path) -> Path:
     bundle_root = transform_dir
     align_root = bundle_root / "ccf_alignment"
     if align_root.exists():
-        bundle_root = align_root
+        return align_root
+    return bundle_root
 
+
+def _infer_dataset_id(bundle_root: Path, dataset_id: str) -> str:
+    if dataset_id:
+        return dataset_id
+    match = re.search(r"\d{6}", bundle_root.name)
+    if match:
+        return match.group(0)
+    raise ValueError(
+        "Could not infer dataset id from transform directory name. "
+        "Please pass --dataset-id explicitly."
+    )
+
+
+def _resolve_manual_df(manual_df_path: str, dataset_id: str, manual_df_filename: str) -> list[str]:
+    if not manual_df_path:
+        return []
+
+    p = Path(manual_df_path)
+    if p.is_file():
+        return [str(p.resolve())]
+
+    if not p.is_dir():
+        raise FileNotFoundError(f"--manual-df-path is neither file nor directory: {manual_df_path}")
+
+    if manual_df_filename:
+        return [_pick_existing([p / manual_df_filename], "manual displacement field")]
+
+    candidates = _candidate_paths(
+        p,
+        [
+            f"{dataset_id}_displacement_field_vector_volume.nrrd",
+            f"{dataset_id}_displacement_field.nrrd",
+            f"{dataset_id}_displacement_field_vector_volume.nii.gz",
+            f"{dataset_id}_displacement_field.nii.gz",
+            "displacement_field_vector_volume.nrrd",
+            "displacement_field.nrrd",
+            "manual_displacement_field.nrrd",
+        ],
+    )
+    hits = [c for c in candidates if c.is_file()]
+    if len(hits) == 1:
+        return [str(hits[0].resolve())]
+    if len(hits) > 1:
+        debug = "\n".join(f"  - {p}" for p in hits)
+        raise FileNotFoundError(
+            "Multiple manual displacement field candidates found. "
+            "Pass --manual-df-filename or --manual-df-path to exact file.\n"
+            f"Matches:\n{debug}"
+        )
+    raise FileNotFoundError(
+        "No manual displacement field found in directory. "
+        "Pass --manual-df-filename or set --manual-df-path to the exact file."
+    )
+
+
+def resolve_inputs(
+    transform_dir: Path,
+    manual_df_path: str = "",
+    dataset_id: str = "",
+    *,
+    sample_to_exaspim_affine_path: str = "",
+    sample_to_exaspim_inverse_warp_path: str = "",
+    exaspim_to_ccf_affine_path: str = DEFAULT_EXASPIM_TO_CCF_AFFINE,
+    exaspim_to_ccf_inverse_warp_path: str = DEFAULT_EXASPIM_TO_CCF_INVERSE_WARP,
+    ccf_template_path: str = DEFAULT_CCF_TEMPLATE,
+    exaspim_template_path: str = DEFAULT_EXASPIM_TEMPLATE,
+    manual_df_filename: str = "",
+) -> ResolvedInputs:
+    bundle_root = _resolve_bundle_root(transform_dir)
+    dataset_id = _infer_dataset_id(bundle_root, dataset_id)
     meta_root = bundle_root / "registration_metadata"
-    acquisition_file = _pick_one(str(meta_root / "acquisition_*.json"), "acquisition file")
 
-    if not dataset_id:
-        match = re.search(r"\d{6}", bundle_root.name) or re.search(r"\d{6}", Path(acquisition_file).stem)
-        dataset_id = match.group(0) if match else "unknown"
+    acquisition_candidates = _candidate_paths(
+        meta_root,
+        [
+            f"acquisition_{dataset_id}.json",
+            "acquisition.json",
+        ],
+    )
+    acquisition_file = _pick_existing(acquisition_candidates, "acquisition file")
 
-    brain_path = _pick_one(
-        str(bundle_root / "registration_metadata" / "*_10um_loaded_zarr_img.nii.gz"),
+    brain_path = _pick_existing(
+        _candidate_paths(
+            meta_root,
+            [
+                f"{dataset_id}_10um_loaded_zarr_img.nii.gz",
+            ],
+        ),
         "10um loaded zarr image",
     )
-    resampled_brain_path = _pick_one(
-        str(bundle_root / "registration_metadata" / "*_10um_resampled_zarr_img.nii.gz"),
+    resampled_brain_path = _pick_existing(
+        _candidate_paths(
+            meta_root,
+            [
+                f"{dataset_id}_10um_resampled_zarr_img.nii.gz",
+            ],
+        ),
         "10um resampled zarr image",
     )
 
-    affine_to_exaspim = _pick_one(
-        str(bundle_root / "**" / "*_to_exaSPIM_SyN_0GenericAffine.mat"),
-        "sample->exaSPIM affine",
-    )
-    invwarp_to_exaspim = _pick_one(
-        str(bundle_root / "**" / "*_to_exaSPIM_SyN_1InverseWarp.nii.gz"),
-        "sample->exaSPIM inverse warp",
-    )
+    if sample_to_exaspim_affine_path:
+        affine_to_exaspim = _require_file(sample_to_exaspim_affine_path, "sample->exaSPIM affine")
+    else:
+        affine_to_exaspim = _pick_existing(
+            _candidate_paths(
+                bundle_root,
+                [
+                    f"{dataset_id}_to_exaSPIM_SyN_0GenericAffine.mat",
+                ],
+            ),
+            "sample->exaSPIM affine",
+        )
 
-    exaspim_to_ccf_affine = _pick_one(str(Path("/data") / "**" / "0GenericAffine.mat"), "exaSPIM->CCF affine")
-    exaspim_to_ccf_invwarp = _pick_one(
-        str(Path("/data") / "**" / "1InverseWarp.nii.gz"),
-        "exaSPIM->CCF inverse warp",
-    )
+    if sample_to_exaspim_inverse_warp_path:
+        invwarp_to_exaspim = _require_file(
+            sample_to_exaspim_inverse_warp_path, "sample->exaSPIM inverse warp"
+        )
+    else:
+        invwarp_to_exaspim = _pick_existing(
+            _candidate_paths(
+                bundle_root,
+                [
+                    f"{dataset_id}_to_exaSPIM_SyN_1InverseWarp.nii.gz",
+                ],
+            ),
+            "sample->exaSPIM inverse warp",
+        )
 
-    ccf_path = _pick_one(str(Path("/data") / "**" / "average_template_10.nii.gz"), "CCF template")
-    exaspim_template_path = _pick_one(str(Path("/data") / "**" / "fixed_median.nii.gz"), "ExaSPIM template")
-
-    manual_transform_path = [manual_df_path] if manual_df_path else []
+    exaspim_to_ccf_affine = _require_file(exaspim_to_ccf_affine_path, "exaSPIM->CCF affine")
+    exaspim_to_ccf_invwarp = _require_file(exaspim_to_ccf_inverse_warp_path, "exaSPIM->CCF inverse warp")
+    ccf_path = _require_file(ccf_template_path, "CCF template")
+    exaspim_template = _require_file(exaspim_template_path, "ExaSPIM template")
+    manual_transform_path = _resolve_manual_df(manual_df_path, dataset_id, manual_df_filename)
 
     return ResolvedInputs(
         dataset_id=dataset_id,
@@ -80,5 +195,5 @@ def resolve_inputs(transform_dir: Path, manual_df_path: str = "", dataset_id: st
         exaspim_to_ccf_transform_path=[exaspim_to_ccf_affine, exaspim_to_ccf_invwarp],
         manual_transform_path=manual_transform_path,
         ccf_path=ccf_path,
-        exaspim_template_path=exaspim_template_path,
+        exaspim_template_path=exaspim_template,
     )
