@@ -1,34 +1,39 @@
 # exaspim-swc-transform
 
-Script-based replacement for notebook-driven ExaSPIM SWC transform.
+Unified post-refinement capsule:
+1) transform SWCs into CCF space,
+2) resample to 10um,
+3) assign structure types,
+4) write final SWC and annotated JSON outputs,
+5) emit processing metadata.
 
-## What it does
-- Reads refined SWCs from `/data/final-world` (or `--swc-dir`).
-- Resolves registration assets from a registration bundle (`--transform-dir`).
-- Applies sample -> exaSPIM -> CCF transforms via `aind_exaspim_register_cells.RegistrationPipeline`.
-- Writes transformed CCF-space SWCs to `/results/aligned_swcs`.
-- Writes run metadata and manifests:
-  - `/results/processing.json` (AIND Processing schema)
-  - `/results/data_process.json` (compatibility alias)
-  - `/results/process_report.json`
-  - `/results/manifests/inputs_manifest.json`
-  - `/results/manifests/outputs_manifest.json`
+## Final output layout
+- `/results/metadata/`
+  - `processing.json` (AIND Processing schema)
+  - `data_process.json` (compatibility alias)
+  - `process_report.json`
+  - `runtime_args.json`
+  - `manifests/inputs_manifest.json`
+  - `manifests/outputs_manifest.json`
+- `/results/ccf_space_reconstructions/`
+  - `swcs/*.swc`
+  - `jsons/*.json`
 
 ## CLI
 ```bash
-python -m exaspim_swc_transform.cli \
+python run.py \
   --swc-dir /data/final-world \
   --transform-dir /data/reg_XXXXXX_to_ccf_v1.5 \
-  --manual-df-path /data/manual-displacement/field.nrrd
+  --manual-df-path /data/manual-displacement/field.nrrd \
+  --output-root /results/ccf_space_reconstructions \
+  --metadata-dir /results/metadata \
+  --node-spacing-um 10
 ```
 
 ## Naming style
 - `--naming-style preserve` keeps original stem.
 - `--naming-style suffix` appends `__space-ccf_res-10um`.
-- `--parity-mode` enforces notebook-era defaults:
-  - output dir: `/results/aligned`
 
-## Code Ocean run wrapper
+## Code Ocean wrapper
 - Primary entrypoint: `python run.py`
 - Convenience wrapper: `./run <transform_dir> [manual_df_path]`
-- Parity wrapper usage: `PARITY_MODE=1 ./run <transform_dir> [manual_df_path]`

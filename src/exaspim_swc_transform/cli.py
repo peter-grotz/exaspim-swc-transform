@@ -1,17 +1,20 @@
-"""Script entrypoint for ExaSPIM SWC transformation."""
+"""Unified CCF transform + final SWC/JSON processing entrypoint."""
 
 from __future__ import annotations
 
 import argparse
 import json
 import os
+import tempfile
 from pathlib import Path
 
 import numpy as np
+import scyjava
 from allensdk.core.swc import Compartment, Morphology
 from aind_exaspim_register_cells import RegistrationPipeline
 
 from exaspim_swc_transform import __version__
+from exaspim_swc_transform.annotate import annotate_swc_to_json, build_mapper
 from exaspim_swc_transform.io_swc import read_swc
 from exaspim_swc_transform.metadata import (
     build_processing_model,
@@ -21,26 +24,24 @@ from exaspim_swc_transform.metadata import (
     write_process_report,
 )
 from exaspim_swc_transform.naming import transformed_name
+from exaspim_swc_transform.resample import resample_swc
 from exaspim_swc_transform.transform_resolution import resolve_inputs
+from exaspim_swc_transform.type_assign import fix_structure_assignment
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Transform SWCs from sample space to CCF")
+    parser = argparse.ArgumentParser(description="Transform SWCs to CCF then emit final resampled/annotated outputs")
     parser.add_argument("--swc-dir", default=os.environ.get("SWC_DIR", "/data/final-world"))
     parser.add_argument("--transform-dir", default=os.environ.get("TRANSFORM_DIR", ""))
     parser.add_argument("--manual-df-path", default=os.environ.get("MANUAL_DF_PATH", ""))
     parser.add_argument("--dataset-id", default="")
-    parser.add_argument("--output-dir", default="")
-    parser.add_argument(
-        "--naming-style",
-        choices=["preserve", "suffix"],
-        default="preserve",
-    )
-    parser.add_argument(
-        "--parity-mode",
-        action="store_true",
-        help="Use notebook-era output directory default: /results/aligned",
-    )
+    parser.add_argument("--output-root", default="/results/ccf_space_reconstructions")
+    parser.add_argument("--metadata-dir", default="/results/metadata")
+    parser.add_argument("--naming-style", choices=["preserve", "suffix"], default="preserve")
+    parser.add_argument("--node-spacing-um", type=float, default=10.0)
+    parser.add_argument("--ccf-resolution-um", type=int, default=10)
+    parser.add_argument("--keep-intermediate", action="store_true")
+    parser.add_argument("--intermediate-dir", default="/results/intermediate")
     parser.add_argument("--fail-fast", action="store_true")
     return parser.parse_args()
 
@@ -62,108 +63,183 @@ def _build_pipeline(resolved) -> RegistrationPipeline:
     )
 
 
+def _record_failure(report: dict[str, object], stage: str, file_path: Path, exc: Exception) -> None:
+    failed = report["failed"]
+    assert isinstance(failed, list)
+    failed.append({"stage": stage, "file": str(file_path), "error": str(exc)})
+
+
 def run(args: argparse.Namespace) -> int:
     if not args.transform_dir:
         raise ValueError("--transform-dir is required")
 
     swc_dir = Path(args.swc_dir)
-    default_output = "/results/aligned" if args.parity_mode else "/results/aligned_swcs"
-    out_dir = Path(args.output_dir or default_output)
     transform_dir = Path(args.transform_dir)
-    naming_style = args.naming_style
-    run_parameters = vars(args).copy()
-    run_parameters["effective_output_dir"] = str(out_dir)
-    run_parameters["effective_naming_style"] = naming_style
+    output_root = Path(args.output_root)
+    metadata_dir = Path(args.metadata_dir)
+    swc_out_dir = output_root / "swcs"
+    json_out_dir = output_root / "jsons"
 
     if not swc_dir.is_dir():
         raise NotADirectoryError(f"SWC input directory does not exist: {swc_dir}")
     if not transform_dir.is_dir():
         raise NotADirectoryError(f"Transform directory does not exist: {transform_dir}")
+    if args.node_spacing_um <= 0:
+        raise ValueError("--node-spacing-um must be > 0")
 
-    out_dir.mkdir(parents=True, exist_ok=True)
+    swc_out_dir.mkdir(parents=True, exist_ok=True)
+    json_out_dir.mkdir(parents=True, exist_ok=True)
+    metadata_dir.mkdir(parents=True, exist_ok=True)
+
+    run_parameters = vars(args).copy()
+    run_parameters["effective_swc_output_dir"] = str(swc_out_dir)
+    run_parameters["effective_json_output_dir"] = str(json_out_dir)
+
+    if args.keep_intermediate:
+        intermediate_root = Path(args.intermediate_dir)
+        intermediate_root.mkdir(parents=True, exist_ok=True)
+        tmp_ctx = None
+    else:
+        tmp_ctx = tempfile.TemporaryDirectory(prefix="exaspim_swc_transform_")
+        intermediate_root = Path(tmp_ctx.name)
 
     start_time = utc_now_iso()
     resolved = resolve_inputs(transform_dir, args.manual_df_path, args.dataset_id)
     pipeline = _build_pipeline(resolved)
-
     ccf, ants_exaspim, brain_img, resampled_img = pipeline.load_images()
 
     all_swcs = sorted(swc_dir.rglob("*.swc"))
     report: dict[str, object] = {
         "dataset_id": resolved.dataset_id,
         "inputs": len(all_swcs),
-        "outputs": 0,
+        "transformed": 0,
+        "resampled": 0,
+        "swc_outputs": 0,
+        "json_outputs": 0,
         "failed": [],
     }
 
-    for swc_path in all_swcs:
-        try:
-            morph = read_swc(swc_path, add_offset=True)
-            coords = np.array([[c["x"], c["y"], c["z"]] for c in morph.compartment_list])
-            resampled_cells = pipeline.preprocess_coords(
-                coords,
-                brain_img.numpy(),
-                resampled_img.numpy(),
-                swc_path.stem,
-            )
-            idx_pts, _ = pipeline.apply_transforms_to_points(
-                resampled_cells,
-                resampled_img,
-                ants_exaspim,
-                ccf,
-                swc_path.stem,
-            )
+    # SNT-backed resampling requires JVM initialization.
+    scyjava.start_jvm()
+    mapper = build_mapper(resolution=args.ccf_resolution_um)
 
-            transformed = []
-            for i, node in enumerate(morph.compartment_list):
-                compartment = Compartment(**node)
-                compartment["x"] = idx_pts[i][0] * 10.0
-                compartment["y"] = idx_pts[i][1] * 10.0
-                compartment["z"] = idx_pts[i][2] * 10.0
-                transformed.append(compartment)
+    transformed_tmp_root = intermediate_root / "transformed"
+    resampled_tmp_root = intermediate_root / "resampled"
+    transformed_tmp_root.mkdir(parents=True, exist_ok=True)
+    resampled_tmp_root.mkdir(parents=True, exist_ok=True)
 
-            aligned_morph = Morphology(transformed)
-            out_name = transformed_name(swc_path, naming_style)
-            out_path = out_dir / out_name
-            out_path.parent.mkdir(parents=True, exist_ok=True)
-            aligned_morph.save(str(out_path))
-            report["outputs"] = int(report["outputs"]) + 1
-        except Exception as exc:  # pragma: no cover - runtime logging path
-            failed = report["failed"]
-            assert isinstance(failed, list)
-            failed.append({"file": str(swc_path), "error": str(exc)})
-            if args.fail_fast:
-                raise
+    try:
+        for swc_path in all_swcs:
+            rel = swc_path.relative_to(swc_dir)
+            final_name = transformed_name(swc_path, args.naming_style)
+            final_swc = swc_out_dir / final_name
+            final_json = json_out_dir / Path(final_name).with_suffix(".json")
+            transformed_tmp = transformed_tmp_root / rel
+            resampled_tmp = resampled_tmp_root / rel
+            transformed_tmp.parent.mkdir(parents=True, exist_ok=True)
+            resampled_tmp.parent.mkdir(parents=True, exist_ok=True)
 
-    end_time = utc_now_iso()
-    report["start_time"] = start_time
-    report["end_time"] = end_time
+            try:
+                morph = read_swc(swc_path, add_offset=True)
+                coords = np.array([[c["x"], c["y"], c["z"]] for c in morph.compartment_list])
+                prepped_cells = pipeline.preprocess_coords(
+                    coords,
+                    brain_img.numpy(),
+                    resampled_img.numpy(),
+                    swc_path.stem,
+                )
+                idx_pts, _ = pipeline.apply_transforms_to_points(
+                    prepped_cells,
+                    resampled_img,
+                    ants_exaspim,
+                    ccf,
+                    swc_path.stem,
+                )
 
-    write_process_report(Path("/results"), report)
-    process_notes = (
-        f"dataset_id={resolved.dataset_id}; "
-        f"acquisition_file={resolved.acquisition_file}; "
-        f"manual_df={args.manual_df_path or '<none>'}"
-    )
-    processing = build_processing_model(
-        process_name="exaspim_swc_transform",
-        process_notes=process_notes,
-        software_version=__version__,
-        start_time=start_time,
-        end_time=end_time,
-        input_location=str(swc_dir),
-        output_location=str(out_dir),
-        parameters=run_parameters,
-        n_inputs=len(all_swcs),
-        n_outputs=int(report["outputs"]),
-        n_failed=len(report["failed"]),
-    )
-    write_processing_files(Path("/results"), processing)
-    write_manifest(swc_dir, Path("/results/manifests/inputs_manifest.json"))
-    write_manifest(out_dir, Path("/results/manifests/outputs_manifest.json"))
+                transformed = []
+                for i, node in enumerate(morph.compartment_list):
+                    compartment = Compartment(**node)
+                    compartment["x"] = idx_pts[i][0] * 10.0
+                    compartment["y"] = idx_pts[i][1] * 10.0
+                    compartment["z"] = idx_pts[i][2] * 10.0
+                    transformed.append(compartment)
 
-    Path("/results/runtime_args.json").write_text(json.dumps(run_parameters, indent=2), encoding="utf-8")
-    return 0
+                Morphology(transformed).save(str(transformed_tmp))
+                report["transformed"] = int(report["transformed"]) + 1
+            except Exception as exc:  # pragma: no cover
+                _record_failure(report, "transform", swc_path, exc)
+                if args.fail_fast:
+                    raise
+                continue
+
+            try:
+                resample_swc(transformed_tmp, resampled_tmp, args.node_spacing_um)
+                report["resampled"] = int(report["resampled"]) + 1
+            except Exception as exc:  # pragma: no cover
+                _record_failure(report, "resample", swc_path, exc)
+                if args.fail_fast:
+                    raise
+                continue
+
+            try:
+                final_swc.parent.mkdir(parents=True, exist_ok=True)
+                fix_structure_assignment(str(resampled_tmp), str(final_swc))
+                report["swc_outputs"] = int(report["swc_outputs"]) + 1
+            except Exception as exc:  # pragma: no cover
+                _record_failure(report, "type_assignment", swc_path, exc)
+                if args.fail_fast:
+                    raise
+                continue
+
+            try:
+                annotate_swc_to_json(mapper, final_swc, final_json)
+                report["json_outputs"] = int(report["json_outputs"]) + 1
+            except Exception as exc:  # pragma: no cover
+                _record_failure(report, "annotation", swc_path, exc)
+                if args.fail_fast:
+                    raise
+                continue
+
+        end_time = utc_now_iso()
+        report["start_time"] = start_time
+        report["end_time"] = end_time
+
+        write_process_report(metadata_dir, report)
+
+        process_notes = (
+            f"dataset_id={resolved.dataset_id}; "
+            f"acquisition_file={resolved.acquisition_file}; "
+            f"manual_df={args.manual_df_path or '<none>'}; "
+            f"node_spacing_um={args.node_spacing_um}; "
+            f"ccf_resolution_um={args.ccf_resolution_um}"
+        )
+        processing = build_processing_model(
+            process_name="Neuron Reconstruction Processing Pipeline",
+            process_notes=process_notes,
+            software_version=__version__,
+            start_time=start_time,
+            end_time=end_time,
+            input_location=str(swc_dir),
+            output_location=str(output_root),
+            parameters=run_parameters,
+            n_inputs=len(all_swcs),
+            n_outputs=int(report["json_outputs"]),
+            n_failed=len(report["failed"]),
+        )
+        write_processing_files(metadata_dir, processing)
+
+        manifests_dir = metadata_dir / "manifests"
+        write_manifest(swc_dir, manifests_dir / "inputs_manifest.json")
+        write_manifest(output_root, manifests_dir / "outputs_manifest.json")
+
+        (metadata_dir / "runtime_args.json").write_text(
+            json.dumps(run_parameters, indent=2),
+            encoding="utf-8",
+        )
+        return 0
+    finally:
+        if tmp_ctx is not None:
+            tmp_ctx.cleanup()
 
 
 def main() -> None:

@@ -58,9 +58,9 @@ def build_processing_model(
     n_outputs: int,
     n_failed: int,
 ) -> Processing:
-    code_url = os.environ.get("CODE_URL", "https://github.com/peter-grotz/exaspim-swc-transform")
-    pipeline_name = "exaspim-swc-transform-pipeline"
-    experimenters = [os.environ.get("AIND_EXPERIMENTER", "AIND Scientific Computing")]
+    code_url = os.environ.get("PROCESSING_CODE_URL", "https://github.com/AllenNeuralDynamics/neuron-tracing-utils")
+    pipeline_name = "Neuron Reconstruction Processing Pipeline"
+    experimenters = [os.environ.get("AIND_EXPERIMENTER", "MSMA Team")]
 
     pipeline_code = Code(
         name=pipeline_name,
@@ -75,8 +75,8 @@ def build_processing_model(
 
     data_process = DataProcess(
         name=process_name,
-        process_type=ProcessName.ANALYSIS,
-        stage=ProcessStage.PROCESSING,
+        process_type=ProcessName.NEURON_SKELETON_PROCESSING,
+        stage=ProcessStage.ANALYSIS,
         code=process_code,
         experimenters=experimenters,
         pipeline_name=pipeline_name,

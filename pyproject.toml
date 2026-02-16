@@ -11,7 +11,12 @@ requires-python = ">=3.10"
 authors = [{name = "AIND"}]
 dependencies = [
   "numpy>=1.23,<2",
+  "scipy>=1.10,<2",
+  "networkx>=3.0",
+  "scyjava>=1.9",
   "allensdk>=2.16",
+  "neuron-tracing-utils",
+  "aind-morphology-utils",
   "aind_exaspim_register_cells",
   "aind-data-schema==2.4.0",
 ]
