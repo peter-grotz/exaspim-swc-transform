@@ -1,0 +1,60 @@
+{
+	"version": 1,
+	"parameters": [
+		{
+			"id": "ZGPTE2lH8SF8Y0bv",
+			"name": "TRANSFORM_DIR",
+			"type": "text",
+			"value_type": "string",
+			"required": true
+		},
+		{
+			"id": "lNEJQOmtYjACAwxm",
+			"name": "MANUAL_DF_PATH",
+			"type": "text",
+			"value_type": "string"
+		},
+		{
+			"id": "ePaqblQTh6fIeqbZ",
+			"name": "ACQUISITION_FILE_PATH",
+			"type": "text",
+			"value_type": "string"
+		},
+		{
+			"id": "JF2HVCuM4DOmHI6J",
+			"name": "LOADED_ZARR_IMAGE_PATH",
+			"type": "text",
+			"value_type": "string"
+		},
+		{
+			"id": "IUNt7BK5esqFHqJF",
+			"name": "RESAMPLED_ZARR_IMAGE_PATH",
+			"type": "text",
+			"value_type": "string"
+		},
+		{
+			"id": "H31f1LF7EPPGKVYV",
+			"name": "SAMPLE_TO_EXASPIM_AFFINE_PATH",
+			"type": "text",
+			"value_type": "string"
+		},
+		{
+			"id": "garcOkgv7j6DSr07",
+			"name": "SAMPLE_TO_EXASPIM_INVERSE_WARP_PATH",
+			"type": "text",
+			"value_type": "string"
+		},
+		{
+			"id": "rR6S0aapUF0BMOyG",
+			"name": "NODE_SPACING_UM",
+			"type": "text",
+			"value_type": "string"
+		},
+		{
+			"id": "81sdqka6r7TKbCZh",
+			"name": "CCF_RESOLUTION_UM",
+			"type": "text",
+			"value_type": "string"
+		}
+	]
+}
