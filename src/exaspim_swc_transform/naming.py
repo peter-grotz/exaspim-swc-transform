@@ -10,8 +10,6 @@ def transformed_name(input_path: Path, style: str = "preserve") -> str:
     style=suffix appends explicit coordinate-space suffix.
     """
     stem = input_path.stem
-    if style == "aligned_prefix":
-        return f"aligned_{stem}.swc"
     if style == "suffix":
         return f"{stem}__space-ccf_res-10um.swc"
     return f"{stem}.swc"

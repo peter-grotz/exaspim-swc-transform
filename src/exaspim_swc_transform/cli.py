@@ -33,13 +33,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", default="")
     parser.add_argument(
         "--naming-style",
-        choices=["preserve", "suffix", "aligned_prefix"],
+        choices=["preserve", "suffix"],
         default="preserve",
     )
     parser.add_argument(
         "--parity-mode",
         action="store_true",
-        help="Match notebook-era defaults: /results/aligned and aligned_<stem>.swc",
+        help="Use notebook-era output directory default: /results/aligned",
     )
     parser.add_argument("--fail-fast", action="store_true")
     return parser.parse_args()
@@ -70,7 +70,7 @@ def run(args: argparse.Namespace) -> int:
     default_output = "/results/aligned" if args.parity_mode else "/results/aligned_swcs"
     out_dir = Path(args.output_dir or default_output)
     transform_dir = Path(args.transform_dir)
-    naming_style = "aligned_prefix" if args.parity_mode else args.naming_style
+    naming_style = args.naming_style
     run_parameters = vars(args).copy()
     run_parameters["effective_output_dir"] = str(out_dir)
     run_parameters["effective_naming_style"] = naming_style
