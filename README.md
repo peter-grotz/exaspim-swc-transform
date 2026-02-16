@@ -8,7 +8,8 @@ Script-based replacement for notebook-driven ExaSPIM SWC transform.
 - Applies sample -> exaSPIM -> CCF transforms via `aind_exaspim_register_cells.RegistrationPipeline`.
 - Writes transformed CCF-space SWCs to `/results/aligned_swcs`.
 - Writes run metadata and manifests:
-  - `/results/data_process.json`
+  - `/results/processing.json` (AIND Processing schema)
+  - `/results/data_process.json` (compatibility alias)
   - `/results/process_report.json`
   - `/results/manifests/inputs_manifest.json`
   - `/results/manifests/outputs_manifest.json`

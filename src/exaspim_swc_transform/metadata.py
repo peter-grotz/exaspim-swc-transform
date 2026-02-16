@@ -9,6 +9,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from aind_data_schema.components.identifiers import Code
+from aind_data_schema.core.processing import DataProcess, ProcessName, ProcessStage, Processing
+
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -41,30 +44,64 @@ def write_process_report(out_dir: Path, report: dict[str, Any]) -> None:
     (out_dir / "process_report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
 
 
-def write_data_process(out_dir: Path, payload: dict[str, Any]) -> None:
-    (out_dir / "data_process.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
-
-
-def build_data_process_payload(
+def build_processing_model(
     *,
-    stage_name: str,
+    process_name: str,
+    process_notes: str,
     software_version: str,
     start_time: str,
     end_time: str,
     input_location: str,
     output_location: str,
     parameters: dict[str, Any],
-    notes: list[str],
-) -> dict[str, Any]:
-    # Kept intentionally minimal and JSON-serializable for initial integration.
-    return {
-        "name": stage_name,
-        "software_version": software_version,
-        "start_date_time": start_time,
-        "end_date_time": end_time,
-        "input_location": input_location,
-        "output_location": output_location,
-        "code_url": os.environ.get("CODE_URL", "https://github.com/peter-grotz/exaspim-swc-transform"),
-        "parameters": parameters,
-        "notes": notes,
-    }
+    n_inputs: int,
+    n_outputs: int,
+    n_failed: int,
+) -> Processing:
+    code_url = os.environ.get("CODE_URL", "https://github.com/peter-grotz/exaspim-swc-transform")
+    pipeline_name = "exaspim-swc-transform-pipeline"
+    experimenters = [os.environ.get("AIND_EXPERIMENTER", "AIND Scientific Computing")]
+
+    pipeline_code = Code(
+        name=pipeline_name,
+        url=code_url,
+        version=software_version,
+    )
+    process_code = Code(
+        url=code_url,
+        version=software_version,
+        parameters=parameters,
+    )
+
+    data_process = DataProcess(
+        name=process_name,
+        process_type=ProcessName.ANALYSIS,
+        stage=ProcessStage.PROCESSING,
+        code=process_code,
+        experimenters=experimenters,
+        pipeline_name=pipeline_name,
+        start_date_time=start_time,
+        end_date_time=end_time,
+        output_path=output_location,
+        output_parameters={
+            "input_location": input_location,
+            "n_inputs": n_inputs,
+            "n_outputs": n_outputs,
+            "n_failed": n_failed,
+        },
+        notes=process_notes,
+    )
+
+    return Processing.create_with_sequential_process_graph(
+        data_processes=[data_process],
+        pipelines=[pipeline_code],
+        notes=process_notes,
+    )
+
+
+def write_processing_files(out_dir: Path, processing: Processing) -> None:
+    serialized = processing.model_dump_json(indent=2)
+    # Canonical AIND filename
+    (out_dir / "processing.json").write_text(serialized, encoding="utf-8")
+    # Compatibility alias while transitioning downstream consumers
+    (out_dir / "data_process.json").write_text(serialized, encoding="utf-8")

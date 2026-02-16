@@ -14,9 +14,9 @@ from aind_exaspim_register_cells import RegistrationPipeline
 from exaspim_swc_transform import __version__
 from exaspim_swc_transform.io_swc import read_swc
 from exaspim_swc_transform.metadata import (
-    build_data_process_payload,
+    build_processing_model,
     utc_now_iso,
-    write_data_process,
+    write_processing_files,
     write_manifest,
     write_process_report,
 )
@@ -140,23 +140,25 @@ def run(args: argparse.Namespace) -> int:
     report["end_time"] = end_time
 
     write_process_report(Path("/results"), report)
-    write_data_process(
-        Path("/results"),
-        build_data_process_payload(
-            stage_name="exaspim_swc_transform",
-            software_version=__version__,
-            start_time=start_time,
-            end_time=end_time,
-            input_location=str(swc_dir),
-            output_location=str(out_dir),
-            parameters=run_parameters,
-            notes=[
-                f"dataset_id={resolved.dataset_id}",
-                f"acquisition_file={resolved.acquisition_file}",
-                f"manual_df={args.manual_df_path or '<none>'}",
-            ],
-        ),
+    process_notes = (
+        f"dataset_id={resolved.dataset_id}; "
+        f"acquisition_file={resolved.acquisition_file}; "
+        f"manual_df={args.manual_df_path or '<none>'}"
     )
+    processing = build_processing_model(
+        process_name="exaspim_swc_transform",
+        process_notes=process_notes,
+        software_version=__version__,
+        start_time=start_time,
+        end_time=end_time,
+        input_location=str(swc_dir),
+        output_location=str(out_dir),
+        parameters=run_parameters,
+        n_inputs=len(all_swcs),
+        n_outputs=int(report["outputs"]),
+        n_failed=len(report["failed"]),
+    )
+    write_processing_files(Path("/results"), processing)
     write_manifest(swc_dir, Path("/results/manifests/inputs_manifest.json"))
     write_manifest(out_dir, Path("/results/manifests/outputs_manifest.json"))
 

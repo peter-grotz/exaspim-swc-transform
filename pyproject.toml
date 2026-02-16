@@ -13,7 +13,7 @@ dependencies = [
   "numpy>=1.23,<2",
   "allensdk>=2.16",
   "aind_exaspim_register_cells",
-  "aind-data-schema-models==2.3.0",
+  "aind-data-schema==2.4.0",
 ]
 
 [project.scripts]
