@@ -43,6 +43,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--manual-df-filename", default=os.environ.get("MANUAL_DF_FILENAME", ""))
     parser.add_argument("--dataset-id", default="")
     parser.add_argument(
+        "--acquisition-file-path",
+        default=os.environ.get("ACQUISITION_FILE_PATH", ""),
+    )
+    parser.add_argument(
+        "--loaded-zarr-image-path",
+        default=os.environ.get("LOADED_ZARR_IMAGE_PATH", ""),
+    )
+    parser.add_argument(
+        "--resampled-zarr-image-path",
+        default=os.environ.get("RESAMPLED_ZARR_IMAGE_PATH", ""),
+    )
+    parser.add_argument(
         "--sample-to-exaspim-affine-path",
         default=os.environ.get("SAMPLE_TO_EXASPIM_AFFINE_PATH", ""),
     )
@@ -142,6 +154,9 @@ def run(args: argparse.Namespace) -> int:
         transform_dir,
         args.manual_df_path,
         args.dataset_id,
+        acquisition_file_path=args.acquisition_file_path,
+        loaded_zarr_image_path=args.loaded_zarr_image_path,
+        resampled_zarr_image_path=args.resampled_zarr_image_path,
         sample_to_exaspim_affine_path=args.sample_to_exaspim_affine_path,
         sample_to_exaspim_inverse_warp_path=args.sample_to_exaspim_inverse_warp_path,
         exaspim_to_ccf_affine_path=args.exaspim_to_ccf_affine_path,

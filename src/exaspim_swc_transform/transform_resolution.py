@@ -112,6 +112,9 @@ def resolve_inputs(
     manual_df_path: str = "",
     dataset_id: str = "",
     *,
+    acquisition_file_path: str = "",
+    loaded_zarr_image_path: str = "",
+    resampled_zarr_image_path: str = "",
     sample_to_exaspim_affine_path: str = "",
     sample_to_exaspim_inverse_warp_path: str = "",
     exaspim_to_ccf_affine_path: str = DEFAULT_EXASPIM_TO_CCF_AFFINE,
@@ -124,33 +127,43 @@ def resolve_inputs(
     dataset_id = _infer_dataset_id(bundle_root, dataset_id)
     meta_root = bundle_root / "registration_metadata"
 
-    acquisition_candidates = _candidate_paths(
-        meta_root,
-        [
-            f"acquisition_{dataset_id}.json",
-            "acquisition.json",
-        ],
-    )
-    acquisition_file = _pick_existing(acquisition_candidates, "acquisition file")
+    if acquisition_file_path:
+        acquisition_file = _require_file(acquisition_file_path, "acquisition file")
+    else:
+        acquisition_candidates = _candidate_paths(
+            meta_root,
+            [
+                f"acquisition_{dataset_id}.json",
+                "acquisition.json",
+            ],
+        )
+        acquisition_file = _pick_existing(acquisition_candidates, "acquisition file")
 
-    brain_path = _pick_existing(
-        _candidate_paths(
-            meta_root,
-            [
-                f"{dataset_id}_10um_loaded_zarr_img.nii.gz",
-            ],
-        ),
-        "10um loaded zarr image",
-    )
-    resampled_brain_path = _pick_existing(
-        _candidate_paths(
-            meta_root,
-            [
-                f"{dataset_id}_10um_resampled_zarr_img.nii.gz",
-            ],
-        ),
-        "10um resampled zarr image",
-    )
+    if loaded_zarr_image_path:
+        brain_path = _require_file(loaded_zarr_image_path, "10um loaded zarr image")
+    else:
+        brain_path = _pick_existing(
+            _candidate_paths(
+                meta_root,
+                [
+                    f"{dataset_id}_10um_loaded_zarr_img.nii.gz",
+                ],
+            ),
+            "10um loaded zarr image",
+        )
+
+    if resampled_zarr_image_path:
+        resampled_brain_path = _require_file(resampled_zarr_image_path, "10um resampled zarr image")
+    else:
+        resampled_brain_path = _pick_existing(
+            _candidate_paths(
+                meta_root,
+                [
+                    f"{dataset_id}_10um_resampled_zarr_img.nii.gz",
+                ],
+            ),
+            "10um resampled zarr image",
+        )
 
     if sample_to_exaspim_affine_path:
         affine_to_exaspim = _require_file(sample_to_exaspim_affine_path, "sample->exaSPIM affine")

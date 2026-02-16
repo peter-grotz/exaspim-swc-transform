@@ -43,6 +43,12 @@ python run.py \
   - `registration_metadata/acquisition_{dataset_id}.json`
   - `registration_metadata/{dataset_id}_10um_loaded_zarr_img.nii.gz`
   - `registration_metadata/{dataset_id}_10um_resampled_zarr_img.nii.gz`
+- Per-sample assets can all be overridden explicitly:
+  - `--acquisition-file-path`
+  - `--loaded-zarr-image-path`
+  - `--resampled-zarr-image-path`
+  - `--sample-to-exaspim-affine-path`
+  - `--sample-to-exaspim-inverse-warp-path`
 - Manual displacement field:
   - if `--manual-df-path` is a file, use it directly
   - if it is a directory, the capsule searches dataset-specific names; use `--manual-df-filename` to force a specific file
