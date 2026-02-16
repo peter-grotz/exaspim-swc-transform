@@ -30,8 +30,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--transform-dir", default=os.environ.get("TRANSFORM_DIR", ""))
     parser.add_argument("--manual-df-path", default=os.environ.get("MANUAL_DF_PATH", ""))
     parser.add_argument("--dataset-id", default="")
-    parser.add_argument("--output-dir", default="/results/aligned_swcs")
-    parser.add_argument("--naming-style", choices=["preserve", "suffix"], default="preserve")
+    parser.add_argument("--output-dir", default="")
+    parser.add_argument(
+        "--naming-style",
+        choices=["preserve", "suffix", "aligned_prefix"],
+        default="preserve",
+    )
+    parser.add_argument(
+        "--parity-mode",
+        action="store_true",
+        help="Match notebook-era defaults: /results/aligned and aligned_<stem>.swc",
+    )
     parser.add_argument("--fail-fast", action="store_true")
     return parser.parse_args()
 
@@ -58,8 +67,13 @@ def run(args: argparse.Namespace) -> int:
         raise ValueError("--transform-dir is required")
 
     swc_dir = Path(args.swc_dir)
-    out_dir = Path(args.output_dir)
+    default_output = "/results/aligned" if args.parity_mode else "/results/aligned_swcs"
+    out_dir = Path(args.output_dir or default_output)
     transform_dir = Path(args.transform_dir)
+    naming_style = "aligned_prefix" if args.parity_mode else args.naming_style
+    run_parameters = vars(args).copy()
+    run_parameters["effective_output_dir"] = str(out_dir)
+    run_parameters["effective_naming_style"] = naming_style
 
     if not swc_dir.is_dir():
         raise NotADirectoryError(f"SWC input directory does not exist: {swc_dir}")
@@ -109,7 +123,7 @@ def run(args: argparse.Namespace) -> int:
                 transformed.append(compartment)
 
             aligned_morph = Morphology(transformed)
-            out_name = transformed_name(swc_path, args.naming_style)
+            out_name = transformed_name(swc_path, naming_style)
             out_path = out_dir / out_name
             out_path.parent.mkdir(parents=True, exist_ok=True)
             aligned_morph.save(str(out_path))
@@ -135,7 +149,7 @@ def run(args: argparse.Namespace) -> int:
             end_time=end_time,
             input_location=str(swc_dir),
             output_location=str(out_dir),
-            parameters=vars(args),
+            parameters=run_parameters,
             notes=[
                 f"dataset_id={resolved.dataset_id}",
                 f"acquisition_file={resolved.acquisition_file}",
@@ -146,7 +160,7 @@ def run(args: argparse.Namespace) -> int:
     write_manifest(swc_dir, Path("/results/manifests/inputs_manifest.json"))
     write_manifest(out_dir, Path("/results/manifests/outputs_manifest.json"))
 
-    Path("/results/runtime_args.json").write_text(json.dumps(vars(args), indent=2), encoding="utf-8")
+    Path("/results/runtime_args.json").write_text(json.dumps(run_parameters, indent=2), encoding="utf-8")
     return 0
 
 

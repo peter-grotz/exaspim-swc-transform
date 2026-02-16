@@ -23,8 +23,13 @@ python -m exaspim_swc_transform.cli \
 
 ## Naming style
 - `--naming-style preserve` keeps original stem.
+- `--naming-style aligned_prefix` writes `aligned_<stem>.swc`.
 - `--naming-style suffix` appends `__space-ccf_res-10um`.
+- `--parity-mode` enforces notebook-era defaults:
+  - output dir: `/results/aligned`
+  - file naming: `aligned_<stem>.swc`
 
 ## Code Ocean run wrapper
 - Primary entrypoint: `python run.py`
 - Convenience wrapper: `./run <transform_dir> [manual_df_path]`
+- Parity wrapper usage: `PARITY_MODE=1 ./run <transform_dir> [manual_df_path]`
