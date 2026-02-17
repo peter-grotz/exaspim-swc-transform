@@ -43,18 +43,6 @@
 			"name": "SAMPLE_TO_EXASPIM_INVERSE_WARP_PATH",
 			"type": "text",
 			"value_type": "string"
-		},
-		{
-			"id": "rR6S0aapUF0BMOyG",
-			"name": "NODE_SPACING_UM",
-			"type": "text",
-			"value_type": "string"
-		},
-		{
-			"id": "81sdqka6r7TKbCZh",
-			"name": "CCF_RESOLUTION_UM",
-			"type": "text",
-			"value_type": "string"
 		}
 	]
 }
