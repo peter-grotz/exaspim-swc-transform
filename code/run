@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# If repo root is current working dir:
+python -m pip install -e .
+
+
 python run.py \
   --swc-dir "${SWC_DIR:-/data/final-world}" \
   --transform-dir "${1:-${TRANSFORM_DIR:-}}" \
