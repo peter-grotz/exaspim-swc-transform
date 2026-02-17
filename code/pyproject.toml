@@ -15,7 +15,6 @@ dependencies = [
   "networkx==3.4.2",
   "scyjava>=1.9",
   "allensdk==2.16.2",
-  "neuron-tracing-utils @ git+https://github.com/AllenNeuralDynamics/neuron-tracing-utils.git@f83248616dc55f507a8bef6bcc7178819151cff2",
   "aind-morphology-utils @ git+https://github.com/AllenNeuralDynamics/aind-morphology-utils.git",
   "aind_exaspim_register_cells @ git+https://github.com/AllenNeuralDynamics/aind_exaspim_register_cells.git",
   "aind-data-schema==2.4.0",
