@@ -6,7 +6,7 @@ python -m pip install -e .
 
 
 python run.py \
-  --swc-dir "${SWC_DIR:-/data/final-world}" \
+  --swc-dir "${SWC_DIR:-/data/swc_refinement/final-world}" \
   --transform-dir "${1:-${TRANSFORM_DIR:-}}" \
   --manual-df-path "${2:-${MANUAL_DF_PATH:-}}" \
   --output-root "${OUTPUT_ROOT:-/results/aligned_swcs}" \
