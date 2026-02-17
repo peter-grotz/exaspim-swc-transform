@@ -76,8 +76,12 @@ def parse_args() -> argparse.Namespace:
         "--exaspim-template-path",
         default=os.environ.get("EXASPIM_TEMPLATE_PATH", DEFAULT_EXASPIM_TEMPLATE),
     )
-    parser.add_argument("--output-root", default="/results/aligned_swcs")
-    parser.add_argument("--metadata-dir", default="/results/metadata")
+    parser.add_argument("--output-root", default="/results/exaspim_swc_transform")
+    parser.add_argument(
+        "--metadata-dir",
+        default="",
+        help="Optional metadata directory override. Defaults to --output-root.",
+    )
     parser.add_argument("--naming-style", choices=["preserve", "suffix"], default="preserve")
     parser.add_argument("--fail-fast", action="store_true")
     return parser.parse_args()
@@ -113,7 +117,7 @@ def run(args: argparse.Namespace) -> int:
     swc_dir = Path(args.swc_dir)
     transform_dir = Path(args.transform_dir)
     output_root = Path(args.output_root)
-    metadata_dir = Path(args.metadata_dir)
+    metadata_dir = Path(args.metadata_dir) if args.metadata_dir else output_root
     swc_out_dir = output_root
 
     if not swc_dir.is_dir():
@@ -126,6 +130,7 @@ def run(args: argparse.Namespace) -> int:
 
     run_parameters = vars(args).copy()
     run_parameters["effective_swc_output_dir"] = str(swc_out_dir)
+    run_parameters["effective_metadata_dir"] = str(metadata_dir)
 
     start_time = utc_now_iso()
     resolved = resolve_inputs(
@@ -207,7 +212,7 @@ def run(args: argparse.Namespace) -> int:
         end_time=end_time,
         parameters=run_parameters,
     )
-    write_processing_files(Path("/results"), processing)
+    write_processing_files(metadata_dir)
 
     manifests_dir = metadata_dir / "manifests"
     write_manifest(swc_dir, manifests_dir / "inputs_manifest.json")

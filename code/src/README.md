@@ -8,16 +8,14 @@ Unified post-refinement capsule:
 5) emit processing metadata.
 
 ## Final output layout
-- `/results/metadata/`
+- `/results/exaspim_swc_transform/`
+  - transformed `*.swc` outputs
   - `processing.json` (AIND Processing schema)
   - `data_process.json` (compatibility alias)
   - `process_report.json`
   - `runtime_args.json`
   - `manifests/inputs_manifest.json`
   - `manifests/outputs_manifest.json`
-- `/results/ccf_space_reconstructions/`
-  - `swcs/*.swc`
-  - `jsons/*.json`
 
 ## CLI
 ```bash
@@ -26,8 +24,8 @@ python run.py \
   --transform-dir /data/reg_XXXXXX_to_ccf_v1.5 \
   --dataset-id XXXXXX \
   --manual-df-path /data/manual-XXXXXX-displacement-field \
-  --output-root /results/ccf_space_reconstructions \
-  --metadata-dir /results/metadata \
+  --output-root /results/exaspim_swc_transform \
+  --metadata-dir /results/exaspim_swc_transform \
   --node-spacing-um 10
 ```
 
