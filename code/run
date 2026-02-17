@@ -9,9 +9,6 @@ python run.py \
   --swc-dir "${SWC_DIR:-/data/final-world}" \
   --transform-dir "${1:-${TRANSFORM_DIR:-}}" \
   --manual-df-path "${2:-${MANUAL_DF_PATH:-}}" \
-  --output-root "${OUTPUT_ROOT:-/results/ccf_space_reconstructions}" \
+  --output-root "${OUTPUT_ROOT:-/results/aligned_swcs}" \
   --metadata-dir "${METADATA_DIR:-/results/metadata}" \
-  --node-spacing-um "${NODE_SPACING_UM:-10}" \
-  --ccf-resolution-um "${CCF_RESOLUTION_UM:-10}" \
-  --naming-style "${NAMING_STYLE:-preserve}" \
-  ${KEEP_INTERMEDIATE:+--keep-intermediate}
+  --naming-style "${NAMING_STYLE:-preserve}"

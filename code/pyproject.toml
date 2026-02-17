@@ -11,11 +11,7 @@ requires-python = ">=3.10"
 authors = [{name = "AIND"}]
 dependencies = [
   "numpy==1.23.5",
-  "scipy==1.10.1",
-  "networkx==3.4.2",
-  "scyjava>=1.9",
   "allensdk==2.16.2",
-  "aind-morphology-utils @ git+https://github.com/AllenNeuralDynamics/aind-morphology-utils.git",
   "aind_exaspim_register_cells @ git+https://github.com/AllenNeuralDynamics/aind_exaspim_register_cells.git",
   "aind-data-schema==2.4.0",
 ]
