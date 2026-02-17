@@ -7,8 +7,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-DEFAULT_EXASPIM_TO_CCF_AFFINE = "/data/reg_exaspim_template_to_ccf_withGradMap_10um_v1.0/0GenericAffine.mat"
-DEFAULT_EXASPIM_TO_CCF_INVERSE_WARP = "/data/reg_exaspim_template_to_ccf_withGradMap_10um_v1.0/1InverseWarp.nii.gz"
+DEFAULT_EXASPIM_TO_CCF_AFFINE = "/data/reg_exaspim_template_to_ccf_25um_v1.5/0GenericAffine.mat"
+DEFAULT_EXASPIM_TO_CCF_INVERSE_WARP = "/data/reg_exaspim_template_to_ccf_25um_v1.5/1InverseWarp.nii.gz"
 DEFAULT_CCF_TEMPLATE = "/data/allen_mouse_ccf/average_template/average_template_10.nii.gz"
 DEFAULT_EXASPIM_TEMPLATE = (
     "/data/exaspim_template_7subjects_nomask_10um_round6_template_only/fixed_median.nii.gz"

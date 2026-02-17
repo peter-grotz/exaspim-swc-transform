@@ -33,8 +33,8 @@ python run.py \
 
 ### Transform resolution strategy
 - Shared assets are fixed by default (override only if needed):
-  - `--exaspim-to-ccf-affine-path` default `/data/reg_exaspim_template_to_ccf_withGradMap_10um_v1.0/0GenericAffine.mat`
-  - `--exaspim-to-ccf-inverse-warp-path` default `/data/reg_exaspim_template_to_ccf_withGradMap_10um_v1.0/1InverseWarp.nii.gz`
+  - `--exaspim-to-ccf-affine-path` default `/data/reg_exaspim_template_to_ccf_25um_v1.5/0GenericAffine.mat`
+  - `--exaspim-to-ccf-inverse-warp-path` default `/data/reg_exaspim_template_to_ccf_25um_v1.5/1InverseWarp.nii.gz`
   - `--ccf-template-path` default `/data/allen_mouse_ccf/average_template/average_template_10.nii.gz`
   - `--exaspim-template-path` default `/data/exaspim_template_7subjects_nomask_10um_round6_template_only/fixed_median.nii.gz`
 - Per-sample assets are resolved by strict naming convention under `--transform-dir`:
