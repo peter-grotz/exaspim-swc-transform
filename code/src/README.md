@@ -9,7 +9,7 @@ Unified post-refinement capsule:
 
 ## Final output layout
 - `/results/exaspim_swc_transform/`
-  - transformed `*.swc` outputs
+  - `aligned_swcs/*.swc` transformed outputs
   - `processing.json` (AIND Processing schema)
   - `data_process.json` (compatibility alias)
   - `process_report.json`

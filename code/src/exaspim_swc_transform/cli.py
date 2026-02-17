@@ -118,7 +118,7 @@ def run(args: argparse.Namespace) -> int:
     transform_dir = Path(args.transform_dir)
     output_root = Path(args.output_root)
     metadata_dir = Path(args.metadata_dir) if args.metadata_dir else output_root
-    swc_out_dir = output_root
+    swc_out_dir = output_root / "aligned_swcs"
 
     if not swc_dir.is_dir():
         raise NotADirectoryError(f"SWC input directory does not exist: {swc_dir}")
