@@ -207,7 +207,7 @@ def run(args: argparse.Namespace) -> int:
         end_time=end_time,
         parameters=run_parameters,
     )
-    write_processing_files(metadata_dir, processing)
+    write_processing_files(Path("/results"), processing)
 
     manifests_dir = metadata_dir / "manifests"
     write_manifest(swc_dir, manifests_dir / "inputs_manifest.json")
