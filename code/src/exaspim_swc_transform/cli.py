@@ -87,10 +87,10 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _build_pipeline(resolved) -> RegistrationPipeline:
+def _build_pipeline(resolved, debug_output_dir: Path) -> RegistrationPipeline:
     return RegistrationPipeline(
         dataset_id=resolved.dataset_id,
-        output_dir=f"/results/{resolved.dataset_id}",
+        output_dir=str(debug_output_dir),
         acquisition_file=resolved.acquisition_file,
         brain_path=resolved.brain_path,
         resampled_brain_path=resolved.resampled_brain_path,
@@ -148,7 +148,9 @@ def run(args: argparse.Namespace) -> int:
         exaspim_template_path=args.exaspim_template_path,
         manual_df_filename=args.manual_df_filename,
     )
-    pipeline = _build_pipeline(resolved)
+    debug_output_dir = output_root / resolved.dataset_id
+    debug_output_dir.mkdir(parents=True, exist_ok=True)
+    pipeline = _build_pipeline(resolved, debug_output_dir)
     ccf, ants_exaspim, brain_img, resampled_img = pipeline.load_images()
 
     all_swcs = sorted(swc_dir.rglob("*.swc"))
