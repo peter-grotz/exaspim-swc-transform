@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from aind_data_schema.components.identifiers import Code
-from aind_data_schema.core.processing import DataProcess, ProcessName, ProcessStage, Processing
+from aind_data_schema.core.processing import DataProcess, ProcessName, Processing
 
 
 def utc_now_iso() -> str:
@@ -47,26 +47,16 @@ def write_process_report(out_dir: Path, report: dict[str, Any]) -> None:
 def build_processing_model(
     *,
     process_name: str,
-    process_notes: str,
     software_version: str,
     start_time: str,
     end_time: str,
-    input_location: str,
-    output_location: str,
     parameters: dict[str, Any],
-    n_inputs: int,
-    n_outputs: int,
-    n_failed: int,
 ) -> Processing:
-    code_url = os.environ.get("PROCESSING_CODE_URL", "https://github.com/AllenNeuralDynamics/neuron-tracing-utils")
-    pipeline_name = "Neuron Reconstruction Processing Pipeline"
+    code_url = os.environ.get(
+        "PROCESSING_CODE_URL", "https://github.com/peter-grotz/exaspim-swc-transform"
+    )
     experimenters = [os.environ.get("AIND_EXPERIMENTER", "MSMA Team")]
 
-    pipeline_code = Code(
-        name=pipeline_name,
-        url=code_url,
-        version=software_version,
-    )
     process_code = Code(
         url=code_url,
         version=software_version,
@@ -76,26 +66,19 @@ def build_processing_model(
     data_process = DataProcess(
         name=process_name,
         process_type=ProcessName.NEURON_SKELETON_PROCESSING,
-        stage=ProcessStage.ANALYSIS,
+        stage="Processing",
         code=process_code,
         experimenters=experimenters,
-        pipeline_name=pipeline_name,
         start_date_time=start_time,
         end_date_time=end_time,
-        output_path=output_location,
-        output_parameters={
-            "input_location": input_location,
-            "n_inputs": n_inputs,
-            "n_outputs": n_outputs,
-            "n_failed": n_failed,
-        },
-        notes=process_notes,
+        output_parameters=parameters,
     )
 
-    return Processing.create_with_sequential_process_graph(
+    return Processing(
         data_processes=[data_process],
-        pipelines=[pipeline_code],
-        notes=process_notes,
+        pipelines=None,
+        notes=None,
+        dependency_graph=None,
     )
 
 

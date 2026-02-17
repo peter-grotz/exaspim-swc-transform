@@ -200,24 +200,12 @@ def run(args: argparse.Namespace) -> int:
 
     write_process_report(metadata_dir, report)
 
-    process_notes = (
-        f"dataset_id={resolved.dataset_id}; "
-        f"acquisition_file={resolved.acquisition_file}; "
-        f"manual_df={args.manual_df_path or '<none>'}; "
-        "stage=ccf_transform_only"
-    )
     processing = build_processing_model(
-        process_name="Neuron Skeleton CCF Transform",
-        process_notes=process_notes,
+        process_name="SWC Processing",
         software_version=__version__,
         start_time=start_time,
         end_time=end_time,
-        input_location=str(swc_dir),
-        output_location=str(output_root),
         parameters=run_parameters,
-        n_inputs=len(all_swcs),
-        n_outputs=int(report["swc_outputs"]),
-        n_failed=len(report["failed"]),
     )
     write_processing_files(metadata_dir, processing)
 
