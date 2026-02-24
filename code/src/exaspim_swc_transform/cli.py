@@ -31,58 +31,72 @@ from exaspim_swc_transform.transform_resolution import (
 
 
 def parse_args() -> argparse.Namespace:
+    def env_default(name: str, default: str = "") -> str:
+        # Prefer lowercase env names while preserving uppercase compatibility.
+        return os.environ.get(name.lower(), os.environ.get(name, default))
+
     parser = argparse.ArgumentParser(description="Transform SWCs to CCF space")
-    parser.add_argument("--swc-dir", default=os.environ.get("SWC_DIR", "/data/final-world"))
-    parser.add_argument("--transform-dir", default=os.environ.get("TRANSFORM_DIR", ""))
-    parser.add_argument("--manual-df-path", default=os.environ.get("MANUAL_DF_PATH", ""))
-    parser.add_argument("--manual-df-filename", default=os.environ.get("MANUAL_DF_FILENAME", ""))
+    parser.add_argument("--swc-dir", "--swc_dir", dest="swc_dir", default=env_default("SWC_DIR", "/data/final-world"))
+    parser.add_argument("--transform-dir", "--transform_dir", dest="transform_dir", default=env_default("TRANSFORM_DIR", ""))
+    parser.add_argument("--manual-df-path", "--manual_df_path", dest="manual_df_path", default=env_default("MANUAL_DF_PATH", ""))
+    parser.add_argument("--manual-df-filename", "--manual_df_filename", dest="manual_df_filename", default=env_default("MANUAL_DF_FILENAME", ""))
     parser.add_argument("--dataset-id", default="")
     parser.add_argument(
-        "--acquisition-file-path",
-        default=os.environ.get("ACQUISITION_FILE_PATH", ""),
+        "--acquisition-file-path", "--acquisition_file_path",
+        dest="acquisition_file_path",
+        default=env_default("ACQUISITION_FILE_PATH", ""),
     )
     parser.add_argument(
-        "--loaded-zarr-image-path",
-        default=os.environ.get("LOADED_ZARR_IMAGE_PATH", ""),
+        "--loaded-zarr-image-path", "--loaded_zarr_image_path",
+        dest="loaded_zarr_image_path",
+        default=env_default("LOADED_ZARR_IMAGE_PATH", ""),
     )
     parser.add_argument(
-        "--resampled-zarr-image-path",
-        default=os.environ.get("RESAMPLED_ZARR_IMAGE_PATH", ""),
+        "--resampled-zarr-image-path", "--resampled_zarr_image_path",
+        dest="resampled_zarr_image_path",
+        default=env_default("RESAMPLED_ZARR_IMAGE_PATH", ""),
     )
     parser.add_argument(
-        "--sample-to-exaspim-affine-path",
-        default=os.environ.get("SAMPLE_TO_EXASPIM_AFFINE_PATH", ""),
+        "--sample-to-exaspim-affine-path", "--sample_to_exaspim_affine_path",
+        dest="sample_to_exaspim_affine_path",
+        default=env_default("SAMPLE_TO_EXASPIM_AFFINE_PATH", ""),
     )
     parser.add_argument(
-        "--sample-to-exaspim-inverse-warp-path",
-        default=os.environ.get("SAMPLE_TO_EXASPIM_INVERSE_WARP_PATH", ""),
+        "--sample-to-exaspim-inverse-warp-path", "--sample_to_exaspim_inverse_warp_path",
+        dest="sample_to_exaspim_inverse_warp_path",
+        default=env_default("SAMPLE_TO_EXASPIM_INVERSE_WARP_PATH", ""),
     )
     parser.add_argument(
-        "--exaspim-to-ccf-affine-path",
-        default=os.environ.get("EXASPIM_TO_CCF_AFFINE_PATH", DEFAULT_EXASPIM_TO_CCF_AFFINE),
+        "--exaspim-to-ccf-affine-path", "--exaspim_to_ccf_affine_path",
+        dest="exaspim_to_ccf_affine_path",
+        default=env_default("EXASPIM_TO_CCF_AFFINE_PATH", DEFAULT_EXASPIM_TO_CCF_AFFINE),
     )
     parser.add_argument(
-        "--exaspim-to-ccf-inverse-warp-path",
-        default=os.environ.get(
+        "--exaspim-to-ccf-inverse-warp-path", "--exaspim_to_ccf_inverse_warp_path",
+        dest="exaspim_to_ccf_inverse_warp_path",
+        default=env_default(
             "EXASPIM_TO_CCF_INVERSE_WARP_PATH",
             DEFAULT_EXASPIM_TO_CCF_INVERSE_WARP,
         ),
     )
     parser.add_argument(
-        "--ccf-template-path",
-        default=os.environ.get("CCF_TEMPLATE_PATH", DEFAULT_CCF_TEMPLATE),
+        "--ccf-template-path", "--ccf_template_path",
+        dest="ccf_template_path",
+        default=env_default("CCF_TEMPLATE_PATH", DEFAULT_CCF_TEMPLATE),
     )
     parser.add_argument(
-        "--exaspim-template-path",
-        default=os.environ.get("EXASPIM_TEMPLATE_PATH", DEFAULT_EXASPIM_TEMPLATE),
+        "--exaspim-template-path", "--exaspim_template_path",
+        dest="exaspim_template_path",
+        default=env_default("EXASPIM_TEMPLATE_PATH", DEFAULT_EXASPIM_TEMPLATE),
     )
-    parser.add_argument("--output-root", default="/results/exaspim_swc_transform")
+    parser.add_argument("--output-root", "--output_root", dest="output_root", default=env_default("OUTPUT_ROOT", "/results/exaspim_swc_transform"))
     parser.add_argument(
-        "--metadata-dir",
-        default="",
+        "--metadata-dir", "--metadata_dir",
+        dest="metadata_dir",
+        default=env_default("METADATA_DIR", ""),
         help="Optional metadata directory override. Defaults to --output-root.",
     )
-    parser.add_argument("--naming-style", choices=["preserve", "suffix"], default="preserve")
+    parser.add_argument("--naming-style", "--naming_style", dest="naming_style", choices=["preserve", "suffix"], default=env_default("NAMING_STYLE", "preserve"))
     parser.add_argument("--fail-fast", action="store_true")
     return parser.parse_args()
 

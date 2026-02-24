@@ -4,10 +4,19 @@ set -euo pipefail
 # Mode handling for dual-wired pipelines:
 # - modern mode: run this capsule
 # - legacy mode: no-op (successful exit)
-MODE="${TRANSFORM_MODE:-modern}"
+MODE="${transform_mode:-${TRANSFORM_MODE:-modern}}"
 REMAINING_ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --transform_mode)
+      [[ $# -ge 2 ]] || { echo "ERROR: --transform_mode requires a value" >&2; exit 2; }
+      MODE="$2"
+      shift 2
+      ;;
+    --transform_mode=*)
+      MODE="${1#*=}"
+      shift
+      ;;
     --transform-mode)
       [[ $# -ge 2 ]] || { echo "ERROR: --transform-mode requires a value" >&2; exit 2; }
       MODE="$2"
@@ -47,17 +56,17 @@ case "${MODE}" in
     ;;
 esac
 
-TRANSFORM_DIR_ARG="${REMAINING_ARGS[0]-${TRANSFORM_DIR:-}}"
-MANUAL_DF_PATH_ARG="${REMAINING_ARGS[1]-${MANUAL_DF_PATH:-}}"
+TRANSFORM_DIR_ARG="${REMAINING_ARGS[0]-${transform_dir:-${TRANSFORM_DIR:-}}}"
+MANUAL_DF_PATH_ARG="${REMAINING_ARGS[1]-${manual_df_path:-${MANUAL_DF_PATH:-}}}"
 
 # If repo root is current working dir:
 python -m pip install -e .
 
 
 python run.py \
-  --swc-dir "${SWC_DIR:-/data/swc_refinement/final-world}" \
+  --swc-dir "${swc_dir:-${SWC_DIR:-/data/swc_refinement/final-world}}" \
   --transform-dir "${TRANSFORM_DIR_ARG}" \
   --manual-df-path "${MANUAL_DF_PATH_ARG}" \
-  --output-root "${OUTPUT_ROOT:-/results/exaspim_swc_transform}" \
-  --metadata-dir "${METADATA_DIR:-/results/exaspim_swc_transform}" \
-  --naming-style "${NAMING_STYLE:-preserve}"
+  --output-root "${output_root:-${OUTPUT_ROOT:-/results/exaspim_swc_transform}}" \
+  --metadata-dir "${metadata_dir:-${METADATA_DIR:-/results/exaspim_swc_transform}}" \
+  --naming-style "${naming_style:-${NAMING_STYLE:-preserve}}"
