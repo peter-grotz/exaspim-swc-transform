@@ -40,7 +40,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--transform-dir", "--transform_dir", dest="transform_dir", default=env_default("TRANSFORM_DIR", ""))
     parser.add_argument("--manual-df-path", "--manual_df_path", dest="manual_df_path", default=env_default("MANUAL_DF_PATH", ""))
     parser.add_argument("--manual-df-filename", "--manual_df_filename", dest="manual_df_filename", default=env_default("MANUAL_DF_FILENAME", ""))
-    parser.add_argument("--dataset-id", default="")
+    parser.add_argument("--dataset-id", "--dataset_id", dest="dataset_id", default=env_default("DATASET_ID", ""))
     parser.add_argument(
         "--acquisition-file-path", "--acquisition_file_path",
         dest="acquisition_file_path",

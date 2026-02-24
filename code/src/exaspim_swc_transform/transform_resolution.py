@@ -53,14 +53,61 @@ def _resolve_bundle_root(transform_dir: Path) -> Path:
     return bundle_root
 
 
-def _infer_dataset_id(bundle_root: Path, dataset_id: str) -> str:
-    if dataset_id:
-        return dataset_id
-    match = re.search(r"\d{6}", bundle_root.name)
+def _extract_id(text: str) -> str | None:
+    match = re.search(r"\d{6}", text)
     if match:
         return match.group(0)
+    return None
+
+
+def _infer_dataset_id(bundle_root: Path, transform_dir: Path, dataset_id: str) -> str:
+    if dataset_id:
+        return dataset_id
+
+    # 1) Try common directory names first.
+    dir_candidates = [
+        bundle_root.name,
+        bundle_root.parent.name,
+        transform_dir.name,
+        transform_dir.parent.name,
+    ]
+    for candidate in dir_candidates:
+        inferred = _extract_id(candidate)
+        if inferred:
+            return inferred
+
+    # 2) Try registration metadata filenames.
+    metadata_roots = [
+        bundle_root / "registration_metadata",
+        transform_dir / "registration_metadata",
+    ]
+    for meta_root in metadata_roots:
+        if not meta_root.exists():
+            continue
+
+        for pattern in (
+            "acquisition_*.json",
+            "*_10um_loaded_zarr_img.nii.gz",
+            "*_10um_resampled_zarr_img.nii.gz",
+        ):
+            for path in sorted(meta_root.glob(pattern)):
+                inferred = _extract_id(path.name)
+                if inferred:
+                    return inferred
+
+    # 3) Try top-level transform filenames.
+    for root in (bundle_root, transform_dir):
+        for pattern in (
+            "*_to_exaSPIM_SyN_0GenericAffine.mat",
+            "*_to_exaSPIM_SyN_1InverseWarp.nii.gz",
+        ):
+            for path in sorted(root.glob(pattern)):
+                inferred = _extract_id(path.name)
+                if inferred:
+                    return inferred
+
     raise ValueError(
-        "Could not infer dataset id from transform directory name. "
+        "Could not infer dataset id from transform inputs. "
         "Please pass --dataset-id explicitly."
     )
 
@@ -124,7 +171,7 @@ def resolve_inputs(
     manual_df_filename: str = "",
 ) -> ResolvedInputs:
     bundle_root = _resolve_bundle_root(transform_dir)
-    dataset_id = _infer_dataset_id(bundle_root, dataset_id)
+    dataset_id = _infer_dataset_id(bundle_root, transform_dir, dataset_id)
     meta_root = bundle_root / "registration_metadata"
 
     if acquisition_file_path:
