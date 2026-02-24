@@ -47,6 +47,7 @@
 		{
 			"id": "TTUFh4yFXRSNWdxM",
 			"name": "transform_mode",
+			"description": "'modern' or 'legacy' dependent on which transformation capsule you would like to run -- defaults to modern",
 			"type": "text",
 			"value_type": "string"
 		}
