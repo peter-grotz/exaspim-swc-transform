@@ -1,14 +1,63 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Mode handling for dual-wired pipelines:
+# - modern mode: run this capsule
+# - legacy mode: no-op (successful exit)
+MODE="${TRANSFORM_MODE:-modern}"
+REMAINING_ARGS=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --transform-mode)
+      [[ $# -ge 2 ]] || { echo "ERROR: --transform-mode requires a value" >&2; exit 2; }
+      MODE="$2"
+      shift 2
+      ;;
+    --transform-mode=*)
+      MODE="${1#*=}"
+      shift
+      ;;
+    --mode)
+      [[ $# -ge 2 ]] || { echo "ERROR: --mode requires a value" >&2; exit 2; }
+      MODE="$2"
+      shift 2
+      ;;
+    --mode=*)
+      MODE="${1#*=}"
+      shift
+      ;;
+    *)
+      REMAINING_ARGS+=("$1")
+      shift
+      ;;
+  esac
+done
+
+MODE="$(printf '%s' "${MODE}" | tr '[:upper:]' '[:lower:]')"
+case "${MODE}" in
+  ""|modern)
+    ;;
+  legacy)
+    echo "transform_mode=legacy -> modern capsule no-op."
+    exit 0
+    ;;
+  *)
+    echo "ERROR: Unsupported transform mode '${MODE}'. Use 'modern' or 'legacy'." >&2
+    exit 2
+    ;;
+esac
+
+TRANSFORM_DIR_ARG="${REMAINING_ARGS[0]-${TRANSFORM_DIR:-}}"
+MANUAL_DF_PATH_ARG="${REMAINING_ARGS[1]-${MANUAL_DF_PATH:-}}"
+
 # If repo root is current working dir:
 python -m pip install -e .
 
 
 python run.py \
   --swc-dir "${SWC_DIR:-/data/swc_refinement/final-world}" \
-  --transform-dir "${1:-${TRANSFORM_DIR:-}}" \
-  --manual-df-path "${2:-${MANUAL_DF_PATH:-}}" \
+  --transform-dir "${TRANSFORM_DIR_ARG}" \
+  --manual-df-path "${MANUAL_DF_PATH_ARG}" \
   --output-root "${OUTPUT_ROOT:-/results/exaspim_swc_transform}" \
   --metadata-dir "${METADATA_DIR:-/results/exaspim_swc_transform}" \
   --naming-style "${NAMING_STYLE:-preserve}"
