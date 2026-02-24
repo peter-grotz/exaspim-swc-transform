@@ -4,9 +4,9 @@
 		{
 			"id": "ZGPTE2lH8SF8Y0bv",
 			"name": "TRANSFORM_DIR",
+			"description": "required if transform mode is set to legacy",
 			"type": "text",
-			"value_type": "string",
-			"required": true
+			"value_type": "string"
 		},
 		{
 			"id": "lNEJQOmtYjACAwxm",
@@ -41,6 +41,12 @@
 		{
 			"id": "garcOkgv7j6DSr07",
 			"name": "SAMPLE_TO_EXASPIM_INVERSE_WARP_PATH",
+			"type": "text",
+			"value_type": "string"
+		},
+		{
+			"id": "TTUFh4yFXRSNWdxM",
+			"name": "transform_mode",
 			"type": "text",
 			"value_type": "string"
 		}
