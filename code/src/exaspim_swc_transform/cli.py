@@ -34,6 +34,40 @@ def _parse_experimenters() -> list[str]:
     return parts or ["MSMA Team"]
 
 
+def _carry_forward_swc_refinement() -> None:
+    src_root = Path("/data/swc_refinement")
+    dst_root = Path("/results/swc_refinement")
+
+    def _copy_dir(src: Path, dst: Path) -> None:
+        if src.is_dir():
+            shutil.copytree(src, dst, dirs_exist_ok=True)
+
+    if src_root.is_dir():
+        _copy_dir(src_root, dst_root)
+        return
+
+    # Backward-compatible fallback for older refinement layouts.
+    fallback_dirs = (
+        "final-world",
+        "final-voxel",
+        "merged",
+        "mips",
+        "resampled",
+        "voxel",
+        "fixed",
+        "refined",
+        "astar",
+    )
+    copied_any = False
+    for name in fallback_dirs:
+        src = Path("/data") / name
+        if src.is_dir():
+            _copy_dir(src, dst_root / name)
+            copied_any = True
+    if copied_any:
+        print(f"Carried forward legacy refinement outputs into {dst_root}")
+
+
 def _prepare_metadata_steps_dir() -> Path:
     dst = Path("/results/metadata")
     dst.mkdir(parents=True, exist_ok=True)
@@ -188,6 +222,7 @@ def run(args: argparse.Namespace) -> int:
         raise NotADirectoryError(f"Transform directory does not exist: {transform_dir}")
 
     swc_out_dir.mkdir(parents=True, exist_ok=True)
+    _carry_forward_swc_refinement()
     resolved = resolve_inputs(
         transform_dir,
         args.manual_df_path,
