@@ -4,18 +4,11 @@ Unified post-refinement capsule:
 1) transform SWCs into CCF space,
 2) resample to 10um,
 3) assign structure types,
-4) write final SWC and annotated JSON outputs,
-5) emit processing metadata.
+4) write final SWC and annotated JSON outputs.
 
 ## Final output layout
 - `/results/exaspim_swc_transform/`
   - `aligned_swcs/*.swc` transformed outputs
-  - `processing.json` (AIND Processing schema)
-  - `data_process.json` (compatibility alias)
-  - `process_report.json`
-  - `runtime_args.json`
-  - `manifests/inputs_manifest.json`
-  - `manifests/outputs_manifest.json`
 
 ## CLI
 ```bash
@@ -25,7 +18,6 @@ python run.py \
   --dataset-id XXXXXX \
   --manual-df-path /data/manual-XXXXXX-displacement-field \
   --output-root /results/exaspim_swc_transform \
-  --metadata-dir /results/exaspim_swc_transform \
   --node-spacing-um 10
 ```
 

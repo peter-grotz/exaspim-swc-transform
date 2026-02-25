@@ -13,7 +13,6 @@ dependencies = [
   "numpy==1.23.5",
   "allensdk==2.16.2",
   "aind_exaspim_register_cells @ git+https://github.com/AllenNeuralDynamics/aind_exaspim_register_cells.git",
-  "aind-data-schema==2.4.0",
 ]
 
 [project.scripts]

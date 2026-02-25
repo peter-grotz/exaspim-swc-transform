@@ -68,5 +68,4 @@ python run.py \
   --transform-dir "${TRANSFORM_DIR_ARG}" \
   --manual-df-path "${MANUAL_DF_PATH_ARG}" \
   --output-root "${output_root:-${OUTPUT_ROOT:-/results/exaspim_swc_transform}}" \
-  --metadata-dir "${metadata_dir:-${METADATA_DIR:-/results/exaspim_swc_transform}}" \
   --naming-style "${naming_style:-${NAMING_STYLE:-preserve}}"
