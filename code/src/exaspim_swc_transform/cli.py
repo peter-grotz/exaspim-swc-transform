@@ -5,21 +5,15 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 from allensdk.core.swc import Compartment, Morphology
 from aind_exaspim_register_cells import RegistrationPipeline
 
-from exaspim_swc_transform import __version__
 from exaspim_swc_transform.io_swc import read_swc
-from exaspim_swc_transform.metadata import (
-    build_processing_model,
-    utc_now_iso,
-    write_processing_files,
-    write_manifest,
-    write_process_report,
-)
 from exaspim_swc_transform.naming import transformed_name
 from exaspim_swc_transform.transform_resolution import (
     DEFAULT_CCF_TEMPLATE,
@@ -28,6 +22,72 @@ from exaspim_swc_transform.transform_resolution import (
     DEFAULT_EXASPIM_TO_CCF_INVERSE_WARP,
     resolve_inputs,
 )
+
+
+def utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _parse_experimenters() -> list[str]:
+    raw = os.environ.get("EXPERIMENTERS", "MSMA Team")
+    parts = [item.strip() for item in raw.split(",") if item.strip()]
+    return parts or ["MSMA Team"]
+
+
+def _prepare_metadata_steps_dir() -> Path:
+    dst = Path("/results/metadata_steps")
+    dst.mkdir(parents=True, exist_ok=True)
+    src = Path("/data/metadata_steps")
+    if src.is_dir():
+        for path in sorted(src.glob("*.data_process.json")):
+            shutil.copy2(path, dst / path.name)
+    return dst
+
+
+def _write_step_dataprocess(
+    args: argparse.Namespace,
+    start_date_time: str,
+    input_swc_count: int,
+    transformed_swc_count: int,
+    resolved_dataset_id: str,
+    output_root: Path,
+    swc_out_dir: Path,
+) -> None:
+    metadata_dir = _prepare_metadata_steps_dir()
+    step_name = os.environ.get("AIND_STEP_NAME", "exaspim_swc_transform")
+    process_type = os.environ.get("AIND_PROCESS_TYPE", "NEURON_SKELETON_PROCESSING")
+    stage = os.environ.get("AIND_STAGE", "Processing")
+    code_url = os.environ.get(
+        "AIND_CODE_URL",
+        "https://github.com/peter-grotz/exaspim-swc-transform",
+    )
+    code_version = os.environ.get("AIND_CODE_VERSION", "unknown")
+    parameters = dict(vars(args))
+    parameters["resolved_dataset_id"] = resolved_dataset_id
+
+    payload = {
+        "name": step_name,
+        "process_type": process_type,
+        "stage": stage,
+        "code": {
+            "url": code_url,
+            "version": code_version,
+            "parameters": parameters,
+        },
+        "experimenters": _parse_experimenters(),
+        "start_date_time": start_date_time,
+        "end_date_time": utc_now_iso(),
+        "output_parameters": {
+            "output_root": str(output_root),
+            "aligned_swc_dir": str(swc_out_dir),
+            "input_swc_count": input_swc_count,
+            "transformed_swc_count": transformed_swc_count,
+        },
+    }
+
+    out_path = metadata_dir / f"{step_name}.data_process.json"
+    out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    print(f"Wrote step metadata: {out_path}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -90,12 +150,6 @@ def parse_args() -> argparse.Namespace:
         default=env_default("EXASPIM_TEMPLATE_PATH", DEFAULT_EXASPIM_TEMPLATE),
     )
     parser.add_argument("--output-root", "--output_root", dest="output_root", default=env_default("OUTPUT_ROOT", "/results/exaspim_swc_transform"))
-    parser.add_argument(
-        "--metadata-dir", "--metadata_dir",
-        dest="metadata_dir",
-        default=env_default("METADATA_DIR", ""),
-        help="Optional metadata directory override. Defaults to --output-root.",
-    )
     parser.add_argument("--naming-style", "--naming_style", dest="naming_style", choices=["preserve", "suffix"], default=env_default("NAMING_STYLE", "preserve"))
     parser.add_argument("--fail-fast", action="store_true")
     return parser.parse_args()
@@ -118,20 +172,14 @@ def _build_pipeline(resolved, debug_output_dir: Path) -> RegistrationPipeline:
     )
 
 
-def _record_failure(report: dict[str, object], stage: str, file_path: Path, exc: Exception) -> None:
-    failed = report["failed"]
-    assert isinstance(failed, list)
-    failed.append({"stage": stage, "file": str(file_path), "error": str(exc)})
-
-
 def run(args: argparse.Namespace) -> int:
+    start_date_time = utc_now_iso()
     if not args.transform_dir:
         raise ValueError("--transform-dir is required")
 
     swc_dir = Path(args.swc_dir)
     transform_dir = Path(args.transform_dir)
     output_root = Path(args.output_root)
-    metadata_dir = Path(args.metadata_dir) if args.metadata_dir else output_root
     swc_out_dir = output_root / "aligned_swcs"
 
     if not swc_dir.is_dir():
@@ -140,13 +188,6 @@ def run(args: argparse.Namespace) -> int:
         raise NotADirectoryError(f"Transform directory does not exist: {transform_dir}")
 
     swc_out_dir.mkdir(parents=True, exist_ok=True)
-    metadata_dir.mkdir(parents=True, exist_ok=True)
-
-    run_parameters = vars(args).copy()
-    run_parameters["effective_swc_output_dir"] = str(swc_out_dir)
-    run_parameters["effective_metadata_dir"] = str(metadata_dir)
-
-    start_time = utc_now_iso()
     resolved = resolve_inputs(
         transform_dir,
         args.manual_df_path,
@@ -168,14 +209,8 @@ def run(args: argparse.Namespace) -> int:
     ccf, ants_exaspim, brain_img, resampled_img = pipeline.load_images()
 
     all_swcs = sorted(swc_dir.rglob("*.swc"))
-    report: dict[str, object] = {
-        "dataset_id": resolved.dataset_id,
-        "inputs": len(all_swcs),
-        "transformed": 0,
-        "swc_outputs": 0,
-        "failed": [],
-    }
 
+    transformed_count = 0
     for swc_path in all_swcs:
         final_name = transformed_name(swc_path, args.naming_style)
         final_swc = swc_out_dir / final_name
@@ -207,37 +242,23 @@ def run(args: argparse.Namespace) -> int:
                 transformed.append(compartment)
 
             Morphology(transformed).save(str(final_swc))
-            report["transformed"] = int(report["transformed"]) + 1
-            report["swc_outputs"] = int(report["swc_outputs"]) + 1
+            transformed_count += 1
         except Exception as exc:  # pragma: no cover
-            _record_failure(report, "transform", swc_path, exc)
             if args.fail_fast:
                 raise
+            print(f"Failed to transform {swc_path}: {exc}")
             continue
 
-    end_time = utc_now_iso()
-    report["start_time"] = start_time
-    report["end_time"] = end_time
-
-    write_process_report(metadata_dir, report)
-
-    processing = build_processing_model(
-        process_name="SWC Processing",
-        software_version=__version__,
-        start_time=start_time,
-        end_time=end_time,
-        parameters=run_parameters,
+    _write_step_dataprocess(
+        args=args,
+        start_date_time=start_date_time,
+        input_swc_count=len(all_swcs),
+        transformed_swc_count=transformed_count,
+        resolved_dataset_id=resolved.dataset_id,
+        output_root=output_root,
+        swc_out_dir=swc_out_dir,
     )
-    write_processing_files(metadata_dir, processing)
 
-    manifests_dir = metadata_dir / "manifests"
-    write_manifest(swc_dir, manifests_dir / "inputs_manifest.json")
-    write_manifest(output_root, manifests_dir / "outputs_manifest.json")
-
-    (metadata_dir / "runtime_args.json").write_text(
-        json.dumps(run_parameters, indent=2),
-        encoding="utf-8",
-    )
     return 0
 
 
