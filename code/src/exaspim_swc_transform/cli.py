@@ -35,9 +35,9 @@ def _parse_experimenters() -> list[str]:
 
 
 def _prepare_metadata_steps_dir() -> Path:
-    dst = Path("/results/metadata_steps")
+    dst = Path("/results/metadata")
     dst.mkdir(parents=True, exist_ok=True)
-    src = Path("/data/metadata_steps")
+    src = Path("/data/metadata")
     if src.is_dir():
         for path in sorted(src.glob("*.data_process.json")):
             shutil.copy2(path, dst / path.name)
