@@ -132,22 +132,6 @@ def _resolve_manual_df(manual_df_path: str, dataset_id: str, manual_df_filename:
         return [str(p.resolve())]
 
     if not p.is_dir():
-        # Resiliency fallback: if caller supplied an incorrect parent path but the
-        # basename exists uniquely under /data, use that file.
-        data_root = Path("/data")
-        basename = p.name
-        if basename and data_root.is_dir():
-            hits = [h.resolve() for h in data_root.rglob(basename) if h.is_file()]
-            if len(hits) == 1:
-                return [str(hits[0])]
-            if len(hits) > 1:
-                debug = "\n".join(f"  - {h}" for h in hits)
-                raise FileNotFoundError(
-                    "--manual-df-path does not exist, and basename matched multiple files under /data. "
-                    "Pass an exact file path.\n"
-                    f"Requested: {manual_df_path}\n"
-                    f"Matches:\n{debug}"
-                )
         raise FileNotFoundError(f"--manual-df-path is neither file nor directory: {manual_df_path}")
 
     if manual_df_filename:
@@ -167,14 +151,6 @@ def _resolve_manual_df(manual_df_path: str, dataset_id: str, manual_df_filename:
         ],
     )
     hits = [c for c in candidates if c.is_file()]
-    if not hits:
-        # Accept common naming variants that include spaces/case differences.
-        ds = dataset_id.lower()
-        for ext in ("*.nrrd", "*.nii.gz"):
-            for candidate in p.glob(ext):
-                name = candidate.name.lower()
-                if "displacement" in name and "field" in name and (not ds or ds in name):
-                    hits.append(candidate)
     if len(hits) == 1:
         return [str(hits[0].resolve())]
     if len(hits) > 1:
