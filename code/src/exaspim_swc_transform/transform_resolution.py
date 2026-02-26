@@ -132,7 +132,33 @@ def _resolve_manual_df(manual_df_path: str, dataset_id: str, manual_df_filename:
         return [str(p.resolve())]
 
     if not p.is_dir():
-        raise FileNotFoundError(f"--manual-df-path is neither file nor directory: {manual_df_path}")
+        suggestions: list[Path] = []
+        data_root = Path("/data")
+        basename = p.name.lower()
+        dataset_hint = dataset_id.lower() if dataset_id else ""
+        if data_root.is_dir():
+            for candidate in data_root.rglob("*"):
+                if not candidate.is_file():
+                    continue
+                name = candidate.name.lower()
+                if basename and name == basename:
+                    suggestions.append(candidate)
+                    continue
+                if "displacement" in name and "field" in name:
+                    if not dataset_hint or dataset_hint in name:
+                        suggestions.append(candidate)
+
+        suggestion_text = ""
+        if suggestions:
+            sample = "\n".join(f"  - {s}" for s in sorted({s.resolve() for s in suggestions})[:10])
+            suggestion_text = (
+                "\nPotential displacement-field files found under /data:\n"
+                f"{sample}\n"
+                "Set --manual-df-path to one of the exact paths above."
+            )
+        raise FileNotFoundError(
+            f"--manual-df-path is neither file nor directory: {manual_df_path}{suggestion_text}"
+        )
 
     if manual_df_filename:
         return [_pick_existing([p / manual_df_filename], "manual displacement field")]
