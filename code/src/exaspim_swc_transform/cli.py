@@ -89,7 +89,7 @@ def _write_step_dataprocess(
 ) -> None:
     metadata_dir = _prepare_metadata_steps_dir()
     step_name = os.environ.get("AIND_STEP_NAME", "exaspim_swc_transform")
-    process_type = os.environ.get("AIND_PROCESS_TYPE", "NEURON_SKELETON_PROCESSING")
+    process_type = os.environ.get("AIND_PROCESS_TYPE", "Neuron skeleton processing")
     stage = os.environ.get("AIND_STAGE", "Processing")
     code_url = os.environ.get(
         "AIND_CODE_URL",
