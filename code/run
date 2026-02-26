@@ -63,8 +63,8 @@ MANUAL_DF_PATH_ARG="${REMAINING_ARGS[1]-${manual_df_path:-${MANUAL_DF_PATH:-}}}"
 export PYTHONPATH="${PWD}/src:${PYTHONPATH:-}"
 
 python run.py \
-  --swc-dir "${swc_dir:-${SWC_DIR:-/data/swc_refinement/final-world}}" \
+  --swc-dir "${swc_dir:-${SWC_DIR:-/data/refinement/final-world}}" \
   --transform-dir "${TRANSFORM_DIR_ARG}" \
   --manual-df-path "${MANUAL_DF_PATH_ARG}" \
-  --output-root "${output_root:-${OUTPUT_ROOT:-/results/exaspim_swc_transform}}" \
+  --output-root "${output_root:-${OUTPUT_ROOT:-/results/alignment}}" \
   --naming-style "${naming_style:-${NAMING_STYLE:-preserve}}"

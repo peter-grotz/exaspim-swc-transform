@@ -35,16 +35,16 @@ def _parse_experimenters() -> list[str]:
 
 
 def _carry_forward_swc_refinement() -> None:
-    src_root = Path("/data/swc_refinement")
-    dst_root = Path("/results/swc_refinement")
+    dst_root = Path("/results/refinement")
 
     def _copy_dir(src: Path, dst: Path) -> None:
         if src.is_dir():
             shutil.copytree(src, dst, dirs_exist_ok=True)
 
-    if src_root.is_dir():
-        _copy_dir(src_root, dst_root)
-        return
+    for src_root in (Path("/data/refinement"), Path("/data/swc_refinement")):
+        if src_root.is_dir():
+            _copy_dir(src_root, dst_root)
+            return
 
     # Backward-compatible fallback for older refinement layouts.
     fallback_dirs = (
@@ -130,7 +130,7 @@ def parse_args() -> argparse.Namespace:
         return os.environ.get(name.lower(), os.environ.get(name, default))
 
     parser = argparse.ArgumentParser(description="Transform SWCs to CCF space")
-    parser.add_argument("--swc-dir", "--swc_dir", dest="swc_dir", default=env_default("SWC_DIR", "/data/final-world"))
+    parser.add_argument("--swc-dir", "--swc_dir", dest="swc_dir", default=env_default("SWC_DIR", "/data/refinement/final-world"))
     parser.add_argument("--transform-dir", "--transform_dir", dest="transform_dir", default=env_default("TRANSFORM_DIR", ""))
     parser.add_argument("--manual-df-path", "--manual_df_path", dest="manual_df_path", default=env_default("MANUAL_DF_PATH", ""))
     parser.add_argument("--manual-df-filename", "--manual_df_filename", dest="manual_df_filename", default=env_default("MANUAL_DF_FILENAME", ""))
@@ -183,7 +183,7 @@ def parse_args() -> argparse.Namespace:
         dest="exaspim_template_path",
         default=env_default("EXASPIM_TEMPLATE_PATH", DEFAULT_EXASPIM_TEMPLATE),
     )
-    parser.add_argument("--output-root", "--output_root", dest="output_root", default=env_default("OUTPUT_ROOT", "/results/exaspim_swc_transform"))
+    parser.add_argument("--output-root", "--output_root", dest="output_root", default=env_default("OUTPUT_ROOT", "/results/alignment"))
     parser.add_argument("--naming-style", "--naming_style", dest="naming_style", choices=["preserve", "suffix"], default=env_default("NAMING_STYLE", "preserve"))
     parser.add_argument(
         "--write-debug-output",
@@ -217,6 +217,11 @@ def run(args: argparse.Namespace) -> int:
         raise ValueError("--transform-dir is required")
 
     swc_dir = Path(args.swc_dir)
+    if not swc_dir.is_dir():
+        for candidate in (Path("/data/refinement/final-world"), Path("/data/swc_refinement/final-world"), Path("/data/final-world")):
+            if candidate.is_dir():
+                swc_dir = candidate
+                break
     transform_dir = Path(args.transform_dir)
     output_root = Path(args.output_root)
     swc_out_dir = output_root / "aligned_swcs"

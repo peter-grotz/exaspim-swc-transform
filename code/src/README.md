@@ -7,7 +7,7 @@ Unified post-refinement capsule:
 4) write final SWC and annotated JSON outputs.
 
 ## Final output layout
-- `/results/exaspim_swc_transform/`
+- `/results/alignment/`
   - `aligned_swcs/*.swc` transformed outputs
 
 ## CLI
@@ -17,7 +17,7 @@ python run.py \
   --transform-dir /data/reg_XXXXXX_to_ccf_v1.5 \
   --dataset-id XXXXXX \
   --manual-df-path /data/manual-XXXXXX-displacement-field \
-  --output-root /results/exaspim_swc_transform \
+  --output-root /results/alignment \
   --node-spacing-um 10
 ```
 
