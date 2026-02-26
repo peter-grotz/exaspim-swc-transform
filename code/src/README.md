@@ -51,3 +51,8 @@ python run.py \
 ## Code Ocean wrapper
 - Primary entrypoint: `python run.py`
 - Convenience wrapper: `./run <transform_dir> [manual_df_path]`
+
+## Performance notes
+- Dependencies are installed at image build time (not per run).
+- By default, debug registration artifacts are written to scratch/tmp and removed.
+- Set `--write-debug-output` to persist debug artifacts under `/results/exaspim_swc_transform/<dataset_id>`.

@@ -59,9 +59,8 @@ esac
 TRANSFORM_DIR_ARG="${REMAINING_ARGS[0]-${transform_dir:-${TRANSFORM_DIR:-}}}"
 MANUAL_DF_PATH_ARG="${REMAINING_ARGS[1]-${manual_df_path:-${MANUAL_DF_PATH:-}}}"
 
-# If repo root is current working dir:
-python -m pip install -e .
-
+# Use local source checkout directly; dependencies are installed in image build.
+export PYTHONPATH="${PWD}/src:${PYTHONPATH:-}"
 
 python run.py \
   --swc-dir "${swc_dir:-${SWC_DIR:-/data/swc_refinement/final-world}}" \

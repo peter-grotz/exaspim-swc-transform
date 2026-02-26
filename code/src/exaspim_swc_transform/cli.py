@@ -185,6 +185,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--output-root", "--output_root", dest="output_root", default=env_default("OUTPUT_ROOT", "/results/exaspim_swc_transform"))
     parser.add_argument("--naming-style", "--naming_style", dest="naming_style", choices=["preserve", "suffix"], default=env_default("NAMING_STYLE", "preserve"))
+    parser.add_argument(
+        "--write-debug-output",
+        action="store_true",
+        help="Write registration debug artifacts under output-root/<dataset_id>.",
+    )
     parser.add_argument("--fail-fast", action="store_true")
     return parser.parse_args()
 
@@ -238,10 +243,16 @@ def run(args: argparse.Namespace) -> int:
         exaspim_template_path=args.exaspim_template_path,
         manual_df_filename=args.manual_df_filename,
     )
-    debug_output_dir = output_root / resolved.dataset_id
+    if args.write_debug_output:
+        debug_output_dir = output_root / resolved.dataset_id
+    else:
+        scratch_root = Path("/scratch") if Path("/scratch").is_dir() else Path("/tmp")
+        debug_output_dir = scratch_root / "exaspim_swc_transform_debug" / resolved.dataset_id
     debug_output_dir.mkdir(parents=True, exist_ok=True)
     pipeline = _build_pipeline(resolved, debug_output_dir)
     ccf, ants_exaspim, brain_img, resampled_img = pipeline.load_images()
+    brain_np = brain_img.numpy()
+    resampled_np = resampled_img.numpy()
 
     all_swcs = sorted(swc_dir.rglob("*.swc"))
 
@@ -256,8 +267,8 @@ def run(args: argparse.Namespace) -> int:
             coords = np.array([[c["x"], c["y"], c["z"]] for c in morph.compartment_list])
             prepped_cells = pipeline.preprocess_coords(
                 coords,
-                brain_img.numpy(),
-                resampled_img.numpy(),
+                brain_np,
+                resampled_np,
                 swc_path.stem,
             )
             idx_pts, _ = pipeline.apply_transforms_to_points(
@@ -283,6 +294,9 @@ def run(args: argparse.Namespace) -> int:
                 raise
             print(f"Failed to transform {swc_path}: {exc}")
             continue
+
+    if not args.write_debug_output:
+        shutil.rmtree(debug_output_dir, ignore_errors=True)
 
     _write_step_dataprocess(
         args=args,
