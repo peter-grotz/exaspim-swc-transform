@@ -26,6 +26,15 @@ class ResolvedInputs:
     manual_transform_path: list[str]
     ccf_path: str
     exaspim_template_path: str
+
+
+def _clean_path_str(path_str: str) -> str:
+    cleaned = path_str.strip()
+    if len(cleaned) >= 2 and cleaned[0] == cleaned[-1] and cleaned[0] in {"'", '"'}:
+        cleaned = cleaned[1:-1].strip()
+    return cleaned
+
+
 def _require_file(path: str, what: str) -> str:
     abs_path = os.path.abspath(path)
     if not os.path.isfile(abs_path):
@@ -113,6 +122,8 @@ def _infer_dataset_id(bundle_root: Path, transform_dir: Path, dataset_id: str) -
 
 
 def _resolve_manual_df(manual_df_path: str, dataset_id: str, manual_df_filename: str) -> list[str]:
+    manual_df_path = _clean_path_str(manual_df_path)
+    manual_df_filename = _clean_path_str(manual_df_filename)
     if not manual_df_path:
         return []
 
@@ -121,6 +132,22 @@ def _resolve_manual_df(manual_df_path: str, dataset_id: str, manual_df_filename:
         return [str(p.resolve())]
 
     if not p.is_dir():
+        # Resiliency fallback: if caller supplied an incorrect parent path but the
+        # basename exists uniquely under /data, use that file.
+        data_root = Path("/data")
+        basename = p.name
+        if basename and data_root.is_dir():
+            hits = [h.resolve() for h in data_root.rglob(basename) if h.is_file()]
+            if len(hits) == 1:
+                return [str(hits[0])]
+            if len(hits) > 1:
+                debug = "\n".join(f"  - {h}" for h in hits)
+                raise FileNotFoundError(
+                    "--manual-df-path does not exist, and basename matched multiple files under /data. "
+                    "Pass an exact file path.\n"
+                    f"Requested: {manual_df_path}\n"
+                    f"Matches:\n{debug}"
+                )
         raise FileNotFoundError(f"--manual-df-path is neither file nor directory: {manual_df_path}")
 
     if manual_df_filename:
@@ -133,12 +160,21 @@ def _resolve_manual_df(manual_df_path: str, dataset_id: str, manual_df_filename:
             f"{dataset_id}_displacement_field.nrrd",
             f"{dataset_id}_displacement_field_vector_volume.nii.gz",
             f"{dataset_id}_displacement_field.nii.gz",
+            f"{dataset_id} Displacement Field.nrrd",
             "displacement_field_vector_volume.nrrd",
             "displacement_field.nrrd",
             "manual_displacement_field.nrrd",
         ],
     )
     hits = [c for c in candidates if c.is_file()]
+    if not hits:
+        # Accept common naming variants that include spaces/case differences.
+        ds = dataset_id.lower()
+        for ext in ("*.nrrd", "*.nii.gz"):
+            for candidate in p.glob(ext):
+                name = candidate.name.lower()
+                if "displacement" in name and "field" in name and (not ds or ds in name):
+                    hits.append(candidate)
     if len(hits) == 1:
         return [str(hits[0].resolve())]
     if len(hits) > 1:
