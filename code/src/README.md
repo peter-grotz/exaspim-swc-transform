@@ -9,6 +9,9 @@ Unified post-refinement capsule:
 ## Final output layout
 - `/results/alignment/`
   - `aligned_swcs/*.swc` transformed outputs
+  - `data_process.json` stage metadata
+- `/results/refinement/` (carried forward from upstream, if provided)
+- `/results/dispatch/` (carried forward from upstream, if provided)
 
 ## CLI
 ```bash

@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import shutil
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -34,16 +35,21 @@ def _parse_experimenters() -> list[str]:
     return parts or ["MSMA Team"]
 
 
-def _carry_forward_swc_refinement() -> None:
-    dst_root = Path("/results/refinement")
+def _copy_dir(src: Path, dst: Path) -> None:
+    if src.is_dir():
+        shutil.copytree(src, dst, dirs_exist_ok=True)
 
-    def _copy_dir(src: Path, dst: Path) -> None:
-        if src.is_dir():
-            shutil.copytree(src, dst, dirs_exist_ok=True)
+
+def _carry_forward_upstream_stages() -> None:
+    # Keep upstream stage outputs intact through downstream capsules.
+    for src_root in (Path("/data/dispatch"),):
+        if src_root.is_dir():
+            _copy_dir(src_root, Path("/results/dispatch"))
+            break
 
     for src_root in (Path("/data/refinement"), Path("/data/swc_refinement")):
         if src_root.is_dir():
-            _copy_dir(src_root, dst_root)
+            _copy_dir(src_root, Path("/results/refinement"))
             return
 
     # Backward-compatible fallback for older refinement layouts.
@@ -62,20 +68,10 @@ def _carry_forward_swc_refinement() -> None:
     for name in fallback_dirs:
         src = Path("/data") / name
         if src.is_dir():
-            _copy_dir(src, dst_root / name)
+            _copy_dir(src, Path("/results/refinement") / name)
             copied_any = True
     if copied_any:
-        print(f"Carried forward legacy refinement outputs into {dst_root}")
-
-
-def _prepare_metadata_steps_dir() -> Path:
-    dst = Path("/results/metadata")
-    dst.mkdir(parents=True, exist_ok=True)
-    src = Path("/data/metadata")
-    if src.is_dir():
-        for path in sorted(src.glob("*.data_process.json")):
-            shutil.copy2(path, dst / path.name)
-    return dst
+        print("Carried forward legacy refinement outputs into /results/refinement")
 
 
 def _write_step_dataprocess(
@@ -87,7 +83,7 @@ def _write_step_dataprocess(
     output_root: Path,
     swc_out_dir: Path,
 ) -> None:
-    metadata_dir = _prepare_metadata_steps_dir()
+    output_root.mkdir(parents=True, exist_ok=True)
     step_name = os.environ.get("AIND_STEP_NAME", "exaspim_swc_transform")
     process_type = os.environ.get("AIND_PROCESS_TYPE", "Neuron skeleton processing")
     stage = os.environ.get("AIND_STAGE", "Processing")
@@ -100,17 +96,24 @@ def _write_step_dataprocess(
     parameters["resolved_dataset_id"] = resolved_dataset_id
 
     payload = {
+        "object_type": "Data process",
         "name": step_name,
         "process_type": process_type,
         "stage": stage,
         "code": {
+            "object_type": "Code",
             "url": code_url,
+            "name": "exaspim-swc-transform",
             "version": code_version,
+            "run_script": "code/run.py",
+            "language": "Python",
+            "language_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
             "parameters": parameters,
         },
         "experimenters": _parse_experimenters(),
         "start_date_time": start_date_time,
         "end_date_time": utc_now_iso(),
+        "output_path": str(output_root),
         "output_parameters": {
             "output_root": str(output_root),
             "aligned_swc_dir": str(swc_out_dir),
@@ -119,7 +122,7 @@ def _write_step_dataprocess(
         },
     }
 
-    out_path = metadata_dir / f"{step_name}.data_process.json"
+    out_path = output_root / "data_process.json"
     out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     print(f"Wrote step metadata: {out_path}")
 
@@ -232,7 +235,7 @@ def run(args: argparse.Namespace) -> int:
         raise NotADirectoryError(f"Transform directory does not exist: {transform_dir}")
 
     swc_out_dir.mkdir(parents=True, exist_ok=True)
-    _carry_forward_swc_refinement()
+    _carry_forward_upstream_stages()
     resolved = resolve_inputs(
         transform_dir,
         args.manual_df_path,
