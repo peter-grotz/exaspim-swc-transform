@@ -40,6 +40,14 @@ def _copy_dir(src: Path, dst: Path) -> None:
         shutil.copytree(src, dst, dirs_exist_ok=True)
 
 
+def _image_array(image):
+    # ANTs images expose view() for a zero-copy ndarray backed by the same data.
+    # Using numpy() here can duplicate multi-GB volumes and trigger OOM kills.
+    if hasattr(image, "view"):
+        return image.view()
+    return image.numpy()
+
+
 def _carry_forward_upstream_stages() -> None:
     # Keep upstream stage outputs intact through downstream capsules.
     for src_root in (Path("/data/dispatch"), Path("/data/swc-refinement-test-asset/dispatch")):
@@ -269,8 +277,8 @@ def run(args: argparse.Namespace) -> int:
     debug_output_dir.mkdir(parents=True, exist_ok=True)
     pipeline = _build_pipeline(resolved, debug_output_dir)
     ccf, ants_exaspim, brain_img, resampled_img = pipeline.load_images()
-    brain_np = brain_img.numpy()
-    resampled_np = resampled_img.numpy()
+    brain_np = _image_array(brain_img)
+    resampled_np = _image_array(resampled_img)
 
     all_swcs = sorted(swc_dir.rglob("*.swc"))
 
