@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import argparse
-import json
 import os
+import platform
 import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
+from aind_data_schema.core.processing import Code, DataProcess
 from allensdk.core.swc import Compartment, Morphology
 from aind_exaspim_register_cells import RegistrationPipeline
 
@@ -46,6 +47,25 @@ def _image_array(image):
     if hasattr(image, "view"):
         return image.view()
     return image.numpy()
+
+
+def _resource_usage_payload() -> dict[str, object]:
+    return {
+        "object_type": "Resource usage",
+        "os": f"{platform.system()} {platform.release()}".strip(),
+        "architecture": platform.machine() or None,
+        "cpu": platform.processor() or platform.machine() or None,
+        "cpu_cores": os.cpu_count(),
+        "gpu": None,
+        "system_memory": None,
+        "system_memory_unit": None,
+        "ram": None,
+        "ram_unit": None,
+        "cpu_usage": None,
+        "gpu_usage": None,
+        "ram_usage": None,
+        "usage_unit": "percent",
+    }
 
 
 def _carry_forward_upstream_stages() -> None:
@@ -103,26 +123,26 @@ def _write_step_dataprocess(
         "AIND_CODE_URL",
         "https://github.com/peter-grotz/exaspim-swc-transform",
     )
-    code_version = os.environ.get("AIND_CODE_VERSION", "unknown")
+    code_version = os.environ.get("AIND_CODE_VERSION") or None
     parameters = dict(vars(args))
     parameters["resolved_dataset_id"] = resolved_dataset_id
 
-    payload = {
-        "object_type": "Data process",
-        "name": step_name,
+    code = Code(
+        url=code_url,
+        name="exaspim-swc-transform",
+        version=code_version,
+        run_script="code/run.py",
+        language="Python",
+        language_version=f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+        parameters=parameters,
+    )
+    process = DataProcess.model_validate({
         "process_type": process_type,
+        "name": step_name,
         "stage": stage,
-        "code": {
-            "object_type": "Code",
-            "url": code_url,
-            "name": "exaspim-swc-transform",
-            "version": code_version,
-            "run_script": "code/run.py",
-            "language": "Python",
-            "language_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
-            "parameters": parameters,
-        },
+        "code": code.model_dump(mode="json"),
         "experimenters": _parse_experimenters(),
+        "pipeline_name": None,
         "start_date_time": start_date_time,
         "end_date_time": utc_now_iso(),
         "output_path": str(output_root),
@@ -132,10 +152,12 @@ def _write_step_dataprocess(
             "input_swc_count": input_swc_count,
             "transformed_swc_count": transformed_swc_count,
         },
-    }
+        "notes": "Alignment run completed successfully.",
+        "resources": _resource_usage_payload(),
+    })
 
     out_path = output_root / "data_process.json"
-    out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    out_path.write_text(process.model_dump_json(indent=2), encoding="utf-8")
     print(f"Wrote step metadata: {out_path}")
 
 

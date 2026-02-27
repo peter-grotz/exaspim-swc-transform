@@ -7,6 +7,7 @@ ARG GIT_ASKPASS
 COPY git-askpass /
 
 RUN pip install -U --no-cache-dir \
+    aind-data-schema==2.5.0 \
     numpy==1.23.5 \
     allensdk==2.16.2 \
     git+https://github.com/AllenNeuralDynamics/aind_exaspim_register_cells.git
