@@ -9,7 +9,6 @@ import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 from allensdk.core.swc import Compartment, Morphology
@@ -41,65 +40,21 @@ def _copy_dir(src: Path, dst: Path) -> None:
         shutil.copytree(src, dst, dirs_exist_ok=True)
 
 
-def _iter_data_roots() -> list[Path]:
-    roots = [Path("/data")]
-    data_root = Path("/data")
-    if data_root.is_dir():
-        for child in sorted(data_root.iterdir()):
-            if child.is_dir():
-                roots.append(child)
-    return roots
-
-
-def _first_existing_dir(*rel_paths: str) -> Optional[Path]:
-    for root in _iter_data_roots():
-        for rel in rel_paths:
-            candidate = root / rel
-            if candidate.is_dir():
-                return candidate
-    return None
-
-
-def _find_final_world_dir() -> Optional[Path]:
-    for root in _iter_data_roots():
-        for candidate in sorted(root.rglob("final-world")):
-            if not candidate.is_dir():
-                continue
-            if next(candidate.rglob("*.swc"), None) is not None:
-                return candidate
-    return None
-
-
-def _resolve_input_swc_dir(configured_swc_dir: str) -> Path:
-    explicit = Path(configured_swc_dir)
-    if explicit.is_dir():
-        return explicit
-
-    candidate = _first_existing_dir(
-        "refinement/final-world",
-        "swc_refinement/final-world",
-        "final-world",
-    )
-    if candidate is not None:
-        return candidate
-
-    candidate = _find_final_world_dir()
-    if candidate is not None:
-        return candidate
-
-    return explicit
-
-
 def _carry_forward_upstream_stages() -> None:
     # Keep upstream stage outputs intact through downstream capsules.
-    dispatch_dir = _first_existing_dir("dispatch")
-    if dispatch_dir is not None:
-        _copy_dir(dispatch_dir, Path("/results/dispatch"))
+    for src_root in (Path("/data/dispatch"), Path("/data/swc-refinement-test-asset/dispatch")):
+        if src_root.is_dir():
+            _copy_dir(src_root, Path("/results/dispatch"))
+            break
 
-    refinement_dir = _first_existing_dir("refinement", "swc_refinement")
-    if refinement_dir is not None:
-        _copy_dir(refinement_dir, Path("/results/refinement"))
-        return
+    for src_root in (
+        Path("/data/refinement"),
+        Path("/data/swc_refinement"),
+        Path("/data/swc-refinement-test-asset/refinement"),
+    ):
+        if src_root.is_dir():
+            _copy_dir(src_root, Path("/results/refinement"))
+            return
 
     # Backward-compatible fallback for older refinement layouts.
     fallback_dirs = (
@@ -114,12 +69,11 @@ def _carry_forward_upstream_stages() -> None:
         "astar",
     )
     copied_any = False
-    for root in _iter_data_roots():
-        for name in fallback_dirs:
-            src = root / name
-            if src.is_dir():
-                _copy_dir(src, Path("/results/refinement") / name)
-                copied_any = True
+    for name in fallback_dirs:
+        src = Path("/data") / name
+        if src.is_dir():
+            _copy_dir(src, Path("/results/refinement") / name)
+            copied_any = True
     if copied_any:
         print("Carried forward legacy refinement outputs into /results/refinement")
 
@@ -269,24 +223,24 @@ def run(args: argparse.Namespace) -> int:
     if not args.transform_dir:
         raise ValueError("--transform-dir is required")
 
-    swc_dir = _resolve_input_swc_dir(args.swc_dir)
+    swc_dir = Path(args.swc_dir)
+    if not swc_dir.is_dir():
+        for candidate in (
+            Path("/data/refinement/final-world"),
+            Path("/data/swc_refinement/final-world"),
+            Path("/data/final-world"),
+            Path("/data/swc-refinement-test-asset/refinement/final-world"),
+            Path("/data/swc-refinement-test-asset/final-world"),
+        ):
+            if candidate.is_dir():
+                swc_dir = candidate
+                break
     transform_dir = Path(args.transform_dir)
     output_root = Path(args.output_root)
     swc_out_dir = output_root / "aligned_swcs"
 
     if not swc_dir.is_dir():
-        looked = ", ".join(
-            str(p)
-            for p in (
-                Path(args.swc_dir),
-                Path("/data/refinement/final-world"),
-                Path("/data/swc_refinement/final-world"),
-                Path("/data/final-world"),
-            )
-        )
-        raise NotADirectoryError(
-            f"SWC input directory does not exist: {swc_dir}. Looked in: {looked}"
-        )
+        raise NotADirectoryError(f"SWC input directory does not exist: {swc_dir}")
     if not transform_dir.is_dir():
         raise NotADirectoryError(f"Transform directory does not exist: {transform_dir}")
 
