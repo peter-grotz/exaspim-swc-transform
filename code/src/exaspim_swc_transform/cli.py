@@ -36,6 +36,10 @@ def _parse_experimenters() -> list[str]:
     return parts or ["MSMA Team"]
 
 
+def _code_version() -> str | None:
+    return None
+
+
 def _copy_dir(src: Path, dst: Path) -> None:
     if src.is_dir():
         shutil.copytree(src, dst, dirs_exist_ok=True)
@@ -119,18 +123,32 @@ def _write_step_dataprocess(
     step_name = os.environ.get("AIND_STEP_NAME", "exaspim_swc_transform")
     process_type = os.environ.get("AIND_PROCESS_TYPE", "Neuron skeleton processing")
     stage = os.environ.get("AIND_STAGE", "Processing")
+    default_capsule_url = f"https://codeocean.allenneuraldynamics.org/capsule/{os.environ.get('CO_CAPSULE_ID', '7989393')}"
     code_url = os.environ.get(
         "AIND_CODE_URL",
-        "https://github.com/peter-grotz/exaspim-swc-transform",
+        default_capsule_url,
     )
-    code_version = os.environ.get("AIND_CODE_VERSION") or None
-    parameters = dict(vars(args))
-    parameters["resolved_dataset_id"] = resolved_dataset_id
+    parameters = {
+        "swc_dir": args.swc_dir,
+        "transform_dir": args.transform_dir,
+        "manual_df_path": args.manual_df_path,
+        "manual_df_filename": args.manual_df_filename,
+        "dataset_id": args.dataset_id,
+        "acquisition_file_path": args.acquisition_file_path,
+        "loaded_zarr_image_path": args.loaded_zarr_image_path,
+        "resampled_zarr_image_path": args.resampled_zarr_image_path,
+        "sample_to_exaspim_affine_path": args.sample_to_exaspim_affine_path,
+        "sample_to_exaspim_inverse_warp_path": args.sample_to_exaspim_inverse_warp_path,
+        "exaspim_to_ccf_affine_path": args.exaspim_to_ccf_affine_path,
+        "exaspim_to_ccf_inverse_warp_path": args.exaspim_to_ccf_inverse_warp_path,
+        "ccf_template_path": args.ccf_template_path,
+        "exaspim_template_path": args.exaspim_template_path,
+    }
 
     code = Code(
         url=code_url,
         name="exaspim-swc-transform",
-        version=code_version,
+        version=_code_version(),
         run_script="code/run.py",
         language="Python",
         language_version=f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
@@ -151,8 +169,8 @@ def _write_step_dataprocess(
             "aligned_swc_dir": str(swc_out_dir),
             "input_swc_count": input_swc_count,
             "transformed_swc_count": transformed_swc_count,
+            "resolved_dataset_id": resolved_dataset_id,
         },
-        "notes": "Alignment run completed successfully.",
         "resources": _resource_usage_payload(),
     })
 
