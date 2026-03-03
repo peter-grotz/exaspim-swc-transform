@@ -6,17 +6,18 @@ import argparse
 import os
 import platform
 import shutil
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
-from aind_data_schema.core.processing import Code, DataProcess
 from allensdk.core.swc import Compartment, Morphology
 from aind_exaspim_register_cells import RegistrationPipeline
 
 from exaspim_swc_transform.io_swc import read_swc
 from exaspim_swc_transform.naming import transformed_name
+from exaspim_swc_transform.processing_metadata import write_data_process_json
 from exaspim_swc_transform.transform_resolution import (
     DEFAULT_CCF_TEMPLATE,
     DEFAULT_EXASPIM_TEMPLATE,
@@ -36,8 +37,40 @@ def _parse_experimenters() -> list[str]:
     return parts or ["MSMA Team"]
 
 
-def _code_version() -> str | None:
-    return None
+def _run_git_command(command: list[str]) -> str | None:
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return result.stdout.strip() or None
+
+
+def _codeocean_git_remote_base() -> str | None:
+    credentials = os.getenv("GIT_ACCESS_TOKEN")
+    domain = os.getenv("GIT_HOST")
+    if credentials and domain:
+        return f"https://{credentials}@{domain}"
+
+    username = os.getenv("CODEOCEAN_EMAIL") or _run_git_command(["git", "config", "user.email"])
+    token = os.getenv("CODEOCEAN_API_TOKEN")
+    domain = os.getenv("CODEOCEAN_DOMAIN")
+    if not username or not token or not domain:
+        return None
+    return f"https://{username.replace('@', '%40')}:{token}@{domain}"
+
+
+def _ls_remote_head(remote: str) -> str | None:
+    output = _run_git_command(["git", "ls-remote", remote, "HEAD"])
+    return output.split()[0] if output else None
+
+
+def _code_version(capsule_slug: str | None) -> str | None:
+    if not capsule_slug:
+        return None
+    base = _codeocean_git_remote_base()
+    if not base:
+        return None
+    return _ls_remote_head(f"{base}/capsule-{capsule_slug}.git")
 
 
 def _copy_dir(src: Path, dst: Path) -> None:
@@ -121,9 +154,8 @@ def _write_step_dataprocess(
 ) -> None:
     output_root.mkdir(parents=True, exist_ok=True)
     step_name = os.environ.get("AIND_STEP_NAME", "exaspim_swc_transform")
-    process_type = os.environ.get("AIND_PROCESS_TYPE", "Neuron skeleton processing")
-    stage = os.environ.get("AIND_STAGE", "Processing")
-    default_capsule_url = f"https://codeocean.allenneuraldynamics.org/capsule/{os.environ.get('CO_CAPSULE_ID', '7989393')}"
+    capsule_slug = "7989393"
+    default_capsule_url = f"https://codeocean.allenneuraldynamics.org/capsule/{capsule_slug}"
     code_url = os.environ.get(
         "AIND_CODE_URL",
         default_capsule_url,
@@ -144,38 +176,33 @@ def _write_step_dataprocess(
         "ccf_template_path": args.ccf_template_path,
         "exaspim_template_path": args.exaspim_template_path,
     }
+    success = transformed_swc_count == input_swc_count
+    error_message = None
+    if not success:
+        failed_count = input_swc_count - transformed_swc_count
+        error_message = f"{failed_count} of {input_swc_count} SWCs failed to transform."
 
-    code = Code(
-        url=code_url,
-        name="exaspim-swc-transform",
-        version=_code_version(),
+    out_path = write_data_process_json(
+        code_url=code_url,
+        code_name="exaspim-swc-transform",
+        capsule_slug=capsule_slug,
         run_script="code/run.py",
-        language="Python",
-        language_version=f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+        step_name=step_name,
+        step_label="Alignment run",
         parameters=parameters,
-    )
-    process = DataProcess.model_validate({
-        "process_type": process_type,
-        "name": step_name,
-        "stage": stage,
-        "code": code.model_dump(mode="json"),
-        "experimenters": _parse_experimenters(),
-        "pipeline_name": None,
-        "start_date_time": start_date_time,
-        "end_date_time": utc_now_iso(),
-        "output_path": str(output_root),
-        "output_parameters": {
+        experimenters=_parse_experimenters(),
+        output_dir=output_root,
+        output_parameters={
             "output_root": str(output_root),
             "aligned_swc_dir": str(swc_out_dir),
             "input_swc_count": input_swc_count,
             "transformed_swc_count": transformed_swc_count,
             "resolved_dataset_id": resolved_dataset_id,
         },
-        "resources": _resource_usage_payload(),
-    })
-
-    out_path = output_root / "data_process.json"
-    out_path.write_text(process.model_dump_json(indent=2), encoding="utf-8")
+        start_time=start_date_time,
+        success=success,
+        error_message=error_message,
+    )
     print(f"Wrote step metadata: {out_path}")
 
 
