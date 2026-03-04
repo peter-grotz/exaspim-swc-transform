@@ -15,6 +15,25 @@ copy_first_dir() {
   return 1
 }
 
+copy_first_nested_dir() {
+  local destination="$1"
+  local relative_path="$2"
+  local base="${3:-/data}"
+  local child
+  if [[ ! -d "${base}" ]]; then
+    return 1
+  fi
+  for child in "${base}"/*; do
+    [[ -d "${child}" ]] || continue
+    if [[ -d "${child}/${relative_path}" ]]; then
+      mkdir -p "${destination}"
+      cp -R "${child}/${relative_path}/." "${destination}/"
+      return 0
+    fi
+  done
+  return 1
+}
+
 # Mode handling for dual-wired pipelines:
 # - modern mode: run this capsule
 # - legacy mode: no-op (successful exit)
@@ -62,12 +81,22 @@ case "${MODE}" in
     ;;
   legacy)
     copy_first_dir /results/dispatch /data/dispatch /data/output/dispatch >/dev/null 2>&1 || true
+    if [[ ! -d /results/dispatch ]]; then
+      copy_first_nested_dir /results/dispatch dispatch /data >/dev/null 2>&1 || true
+      copy_first_nested_dir /results/dispatch dispatch /data/output >/dev/null 2>&1 || true
+    fi
     copy_first_dir /results/refinement \
       /data/refinement \
       /data/swc_refinement \
       /data/output/refinement \
       /data/output/swc_refinement \
       >/dev/null 2>&1 || true
+    if [[ ! -d /results/refinement ]]; then
+      copy_first_nested_dir /results/refinement refinement /data >/dev/null 2>&1 || true
+      copy_first_nested_dir /results/refinement swc_refinement /data >/dev/null 2>&1 || true
+      copy_first_nested_dir /results/refinement refinement /data/output >/dev/null 2>&1 || true
+      copy_first_nested_dir /results/refinement swc_refinement /data/output >/dev/null 2>&1 || true
+    fi
     echo "transform_mode=legacy -> modern capsule passthrough."
     exit 0
     ;;

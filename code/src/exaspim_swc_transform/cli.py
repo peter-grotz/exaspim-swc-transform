@@ -78,6 +78,16 @@ def _copy_dir(src: Path, dst: Path) -> None:
         shutil.copytree(src, dst, dirs_exist_ok=True)
 
 
+def _iter_data_roots() -> list[Path]:
+    roots = [Path("/data")]
+    data_root = Path("/data")
+    if data_root.is_dir():
+        for child in sorted(data_root.iterdir()):
+            if child.is_dir() and not child.name.startswith("."):
+                roots.append(child)
+    return roots
+
+
 def _image_array(image):
     # ANTs images expose view() for a zero-copy ndarray backed by the same data.
     # Using numpy() here can duplicate multi-GB volumes and trigger OOM kills.
@@ -107,19 +117,18 @@ def _resource_usage_payload() -> dict[str, object]:
 
 def _carry_forward_upstream_stages() -> None:
     # Keep upstream stage outputs intact through downstream capsules.
-    for src_root in (Path("/data/dispatch"), Path("/data/swc-refinement-test-asset/dispatch")):
+    for root in _iter_data_roots():
+        src_root = root / "dispatch"
         if src_root.is_dir():
             _copy_dir(src_root, Path("/results/dispatch"))
             break
 
-    for src_root in (
-        Path("/data/refinement"),
-        Path("/data/swc_refinement"),
-        Path("/data/swc-refinement-test-asset/refinement"),
-    ):
-        if src_root.is_dir():
-            _copy_dir(src_root, Path("/results/refinement"))
-            return
+    for root in _iter_data_roots():
+        for rel in ("refinement", "swc_refinement"):
+            src_root = root / rel
+            if src_root.is_dir():
+                _copy_dir(src_root, Path("/results/refinement"))
+                return
 
     # Backward-compatible fallback for older refinement layouts.
     fallback_dirs = (
@@ -300,15 +309,13 @@ def run(args: argparse.Namespace) -> int:
 
     swc_dir = Path(args.swc_dir)
     if not swc_dir.is_dir():
-        for candidate in (
-            Path("/data/refinement/final-world"),
-            Path("/data/swc_refinement/final-world"),
-            Path("/data/final-world"),
-            Path("/data/swc-refinement-test-asset/refinement/final-world"),
-            Path("/data/swc-refinement-test-asset/final-world"),
-        ):
-            if candidate.is_dir():
-                swc_dir = candidate
+        for root in _iter_data_roots():
+            for rel in ("refinement/final-world", "swc_refinement/final-world", "final-world"):
+                candidate = root / rel
+                if candidate.is_dir():
+                    swc_dir = candidate
+                    break
+            if swc_dir.is_dir():
                 break
     transform_dir = Path(args.transform_dir)
     output_root = Path(args.output_root)
