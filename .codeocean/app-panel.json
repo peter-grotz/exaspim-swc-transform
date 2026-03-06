@@ -1,13 +1,13 @@
 {
 	"version": 1,
 	"parameters": [
-		{
-			"id": "ZGPTE2lH8SF8Y0bv",
-			"name": "transform_dir",
-			"description": "required if transform mode is set to legacy",
-			"type": "text",
-			"value_type": "string"
-		},
+			{
+				"id": "ZGPTE2lH8SF8Y0bv",
+				"name": "transform_dir",
+				"description": "required for modern transform execution",
+				"type": "text",
+				"value_type": "string"
+			},
 		{
 			"id": "lNEJQOmtYjACAwxm",
 			"name": "manual_df_path",

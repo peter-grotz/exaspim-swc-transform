@@ -38,34 +38,55 @@ copy_first_nested_dir() {
 # - modern mode: run this capsule
 # - legacy mode: no-op (successful exit)
 MODE="${transform_mode:-${TRANSFORM_MODE:-modern}}"
+MODE_EXPLICIT=0
+if [[ -n "${transform_mode:-}" || -n "${TRANSFORM_MODE:-}" ]]; then
+  MODE_EXPLICIT=1
+fi
 REMAINING_ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --transform_mode)
       [[ $# -ge 2 ]] || { echo "ERROR: --transform_mode requires a value" >&2; exit 2; }
       MODE="$2"
+      MODE_EXPLICIT=1
       shift 2
       ;;
     --transform_mode=*)
       MODE="${1#*=}"
+      MODE_EXPLICIT=1
       shift
       ;;
     --transform-mode)
       [[ $# -ge 2 ]] || { echo "ERROR: --transform-mode requires a value" >&2; exit 2; }
       MODE="$2"
+      MODE_EXPLICIT=1
       shift 2
       ;;
     --transform-mode=*)
       MODE="${1#*=}"
+      MODE_EXPLICIT=1
       shift
       ;;
     --mode)
       [[ $# -ge 2 ]] || { echo "ERROR: --mode requires a value" >&2; exit 2; }
       MODE="$2"
+      MODE_EXPLICIT=1
       shift 2
       ;;
     --mode=*)
       MODE="${1#*=}"
+      MODE_EXPLICIT=1
+      shift
+      ;;
+    transform_mode|TRANSFORM_MODE|mode|MODE)
+      [[ $# -ge 2 ]] || { echo "ERROR: $1 requires a value" >&2; exit 2; }
+      MODE="$2"
+      MODE_EXPLICIT=1
+      shift 2
+      ;;
+    transform_mode=*|TRANSFORM_MODE=*|mode=*|MODE=*)
+      MODE="${1#*=}"
+      MODE_EXPLICIT=1
       shift
       ;;
     *)
@@ -74,6 +95,21 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+# App-panel positional compatibility:
+# if mode was not set via flags/env, allow a trailing plain token "modern|legacy".
+if [[ "${MODE_EXPLICIT}" -eq 0 && ${#REMAINING_ARGS[@]} -gt 0 ]]; then
+  LAST_INDEX=$(( ${#REMAINING_ARGS[@]} - 1 ))
+  LAST_TOKEN="${REMAINING_ARGS[$LAST_INDEX]}"
+  LAST_TOKEN_LC="$(printf '%s' "${LAST_TOKEN}" | tr '[:upper:]' '[:lower:]')"
+  case "${LAST_TOKEN_LC}" in
+    modern|legacy)
+      MODE="${LAST_TOKEN_LC}"
+      unset 'REMAINING_ARGS[$LAST_INDEX]'
+      REMAINING_ARGS=("${REMAINING_ARGS[@]}")
+      ;;
+  esac
+fi
 
 MODE="$(printf '%s' "${MODE}" | tr '[:upper:]' '[:lower:]')"
 case "${MODE}" in
