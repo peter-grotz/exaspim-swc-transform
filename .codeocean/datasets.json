@@ -2,6 +2,10 @@
 	"version": 1,
 	"attached_datasets": [
 		{
+			"id": "0b22b6d4-5866-4a31-90ad-7be655a32539",
+			"mount": "reg_exaspim_template_to_ccf_25um_v1.5"
+		},
+		{
 			"id": "518f0402-395a-4a27-9b58-fe51abfa9f94",
 			"mount": "reg_802449_to_ccf_v1.5"
 		}
