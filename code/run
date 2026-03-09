@@ -1,6 +1,32 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+PYTHON_BIN="${PYTHON_BIN:-python3}"
+if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
+  PYTHON_BIN="python"
+fi
+
+clean_token() {
+  local value="${1:-}"
+  local first_char=""
+  local last_char=""
+
+  if [[ "${value}" == "''" || "${value}" == "\"\"" ]]; then
+    printf ''
+    return 0
+  fi
+
+  if [[ ${#value} -ge 2 ]]; then
+    first_char="${value:0:1}"
+    last_char="${value: -1}"
+    if [[ "${first_char}" == "${last_char}" && ( "${first_char}" == "'" || "${first_char}" == '"' ) ]]; then
+      value="${value:1:${#value}-2}"
+    fi
+  fi
+
+  printf '%s' "${value}"
+}
+
 copy_first_dir() {
   local destination="$1"
   shift
@@ -142,13 +168,39 @@ case "${MODE}" in
     ;;
 esac
 
-TRANSFORM_DIR_ARG="${REMAINING_ARGS[0]-${transform_dir:-${TRANSFORM_DIR:-}}}"
-MANUAL_DF_PATH_ARG="${REMAINING_ARGS[1]-${manual_df_path:-${MANUAL_DF_PATH:-}}}"
+SWC_DIR_ARG="$(clean_token "${swc_dir:-${SWC_DIR:-/data/refinement/final-world}}")"
+TRANSFORM_DIR_ARG="$(clean_token "${REMAINING_ARGS[0]-${transform_dir:-${TRANSFORM_DIR:-}}}")"
+MANUAL_DF_PATH_ARG="$(clean_token "${REMAINING_ARGS[1]-${manual_df_path:-${MANUAL_DF_PATH:-}}}")"
+ACQUISITION_FILE_PATH_ARG="$(clean_token "${REMAINING_ARGS[2]-${acquisition_file_path:-${ACQUISITION_FILE_PATH:-}}}")"
+LOADED_ZARR_IMAGE_PATH_ARG="$(clean_token "${REMAINING_ARGS[3]-${loaded_zarr_image_path:-${LOADED_ZARR_IMAGE_PATH:-}}}")"
+RESAMPLED_ZARR_IMAGE_PATH_ARG="$(clean_token "${REMAINING_ARGS[4]-${resampled_zarr_image_path:-${RESAMPLED_ZARR_IMAGE_PATH:-}}}")"
+SAMPLE_TO_EXASPIM_AFFINE_PATH_ARG="$(clean_token "${REMAINING_ARGS[5]-${sample_to_exaspim_affine_path:-${SAMPLE_TO_EXASPIM_AFFINE_PATH:-}}}")"
+SAMPLE_TO_EXASPIM_INVERSE_WARP_PATH_ARG="$(clean_token "${REMAINING_ARGS[6]-${sample_to_exaspim_inverse_warp_path:-${SAMPLE_TO_EXASPIM_INVERSE_WARP_PATH:-}}}")"
 
 # Use local source checkout directly; dependencies are installed in image build.
 export PYTHONPATH="${PWD}/src:${PYTHONPATH:-}"
 
-python run.py \
-  --swc-dir "${swc_dir:-${SWC_DIR:-/data/refinement/final-world}}" \
-  --transform-dir "${TRANSFORM_DIR_ARG}" \
+RUN_ARGS=(
+  run.py
+  --swc-dir "${SWC_DIR_ARG}"
+  --transform-dir "${TRANSFORM_DIR_ARG}"
   --manual-df-path "${MANUAL_DF_PATH_ARG}"
+)
+
+if [[ -n "${ACQUISITION_FILE_PATH_ARG}" ]]; then
+  RUN_ARGS+=(--acquisition-file-path "${ACQUISITION_FILE_PATH_ARG}")
+fi
+if [[ -n "${LOADED_ZARR_IMAGE_PATH_ARG}" ]]; then
+  RUN_ARGS+=(--loaded-zarr-image-path "${LOADED_ZARR_IMAGE_PATH_ARG}")
+fi
+if [[ -n "${RESAMPLED_ZARR_IMAGE_PATH_ARG}" ]]; then
+  RUN_ARGS+=(--resampled-zarr-image-path "${RESAMPLED_ZARR_IMAGE_PATH_ARG}")
+fi
+if [[ -n "${SAMPLE_TO_EXASPIM_AFFINE_PATH_ARG}" ]]; then
+  RUN_ARGS+=(--sample-to-exaspim-affine-path "${SAMPLE_TO_EXASPIM_AFFINE_PATH_ARG}")
+fi
+if [[ -n "${SAMPLE_TO_EXASPIM_INVERSE_WARP_PATH_ARG}" ]]; then
+  RUN_ARGS+=(--sample-to-exaspim-inverse-warp-path "${SAMPLE_TO_EXASPIM_INVERSE_WARP_PATH_ARG}")
+fi
+
+"${PYTHON_BIN}" "${RUN_ARGS[@]}"
